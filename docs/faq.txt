@@ -1,0 +1,19 @@
+ABC TECHNOLOGIES - IT HELPDESK FREQUENTLY ASKED QUESTIONS (FAQ) (DEMONSTRATION ONLY)
+
+Q1: What is the VPN policy at ABC Technologies?
+A: Employees must connect to the corporate GlobalProtect VPN whenever accessing internal systems, databases, or development servers from outside the office.
+
+Q2: How do I request Docker access?
+A: Submit a request in the Self-Service Software Portal under "Software Access Requests -> Developer Tools -> Docker Desktop". Developer requests are auto-approved upon manager endorsement.
+
+Q3: How many leave days can I take?
+A: Full-time employees accrue 20 annual paid leave days, 10 sick leave days, and 5 casual leave days per calendar year.
+
+Q4: What should I do if my laptop is extremely slow?
+A: First check Task Manager to inspect CPU, Memory, and Disk usage. Reboot your laptop to clear background processes. If disk space is low or CPU remains high (>90%), run diagnostics via the AI IT Assistant or log an IT support ticket.
+
+Q5: How can I reset my password?
+A: Use the automated AI Support Assistant password reset workflow or visit https://identity.abctechnologies.com. You will need to verify your identity via a 6-digit OTP code.
+
+Q6: How do I report a lost or stolen laptop?
+A: Immediately report lost devices to IT Security at security-alert@abctechnologies.com or call emergency IT support at extension 9111. Remote wipe will be triggered via Intune.

@@ -1,0 +1,17 @@
+ABC TECHNOLOGIES - NEW EMPLOYEE IT ONBOARDING GUIDE (DEMONSTRATION ONLY)
+
+1. FIRST DAY ESSENTIALS
+Welcome to ABC Technologies! On your first day, your hiring manager or onboarding buddy will assist you with collecting your ABC corporate laptop and Security ID Badge from IT Asset Operations on Floor 3.
+
+2. INITIAL CREDENTIAL SETTING
+You will receive a temporary One-Time Passcode (OTP) via SMS or your registered personal email. Use this temporary credential to set your permanent corporate SSO password at https://identity.abctechnologies.com.
+
+3. REQUIRED SOFTWARE AND TOOLS SETUP
+1. Complete Okta MFA enrollment.
+2. Connect to ABC-Corporate Wi-Fi network.
+3. Install GlobalProtect VPN.
+4. Sign in to Microsoft Outlook and corporate Slack channels (`#welcome`, `#announcements`, `#tech-support`).
+5. Complete Mandatory Cybersecurity Training in the Learning Portal within 7 days.
+
+4. IT HELPDESK CONTACT
+For assistance during onboarding, reach out to IT Onboarding Support via Slack at `#it-helpdesk` or call extension 4357 (HELP).

@@ -1,0 +1,18 @@
+ABC TECHNOLOGIES - DOCKER ACCESS AND CONTAINER GUIDELINES (DEMONSTRATION ONLY)
+
+1. DOCKER DESKTOP ACCESS REQUIREMENT
+Developers requiring Docker Desktop or container runtimes on their corporate workstations must submit an automated access request through the ABC Service Portal under "Software Access Requests -> Developer Tools -> Docker Desktop".
+
+2. APPROVAL WORKFLOW FOR DOCKER
+- Standard Developer Access: Auto-approved for Engineering and IT department employees upon manager endorsement in ServiceNow.
+- Non-Engineering Departments: Requires explicit approval from the IT Security team and Manager.
+
+3. SECURITY AND CONTAINER STANDARDS
+- All base Docker images must be pulled from the internal ABC Container Registry (registry.abctechnologies.com/approved-base).
+- Public Docker Hub images must be scanned for vulnerabilities via Snyk before production deployment.
+- Running containers with root privileges (`--privileged` or `user: root`) on corporate laptops is strictly prohibited.
+- Docker Desktop resources should be capped at 4 CPU cores and 8 GB RAM in Docker Settings to prevent system slowdowns.
+
+4. TROUBLESHOOTING DOCKER DEMON
+- If Docker daemon fails to start, verify WSL 2 (Windows Subsystem for Linux) is enabled on Windows 11 workstations.
+- Run `docker system prune -a` to clear unused image caches if disk space runs low.

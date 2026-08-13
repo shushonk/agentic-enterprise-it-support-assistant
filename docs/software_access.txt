@@ -1,0 +1,16 @@
+ABC TECHNOLOGIES - SOFTWARE PORTAL AND CATALOG ACCESS (DEMONSTRATION ONLY)
+
+1. SOFTWARE REQUEST PORTAL
+All software installation requests at ABC Technologies are centralized in the Self-Service Software Portal (https://software.abctechnologies.com). Employees can request pre-approved software licenses without manual IT intervention.
+
+2. AVAILABLE SOFTWARE TIERS
+- Standard Tier (Auto-Approved): VS Code, Google Chrome, Slack, Zoom, Microsoft 365, Git, Postman.
+- Manager Approval Tier: JetBrains All Products Pack, Figma Enterprise, Tableau Desktop, Docker Desktop.
+- Director / Security Approval Tier: AWS Administrator Access, Jira Admin, Production Database Credentials, Wireshark.
+
+3. LICENSE PROVISIONING TIMELINE
+- Auto-Approved Software: Provisioned within 15 minutes via Microsoft Intune / Jamf Pro.
+- Approval Required Software: Provisioned within 4 hours of final approval.
+
+4. REVOCATION AND RE-HARVESTING
+Software licenses unused for more than 60 consecutive days are subject to automated re-harvesting to optimize software licensing costs.

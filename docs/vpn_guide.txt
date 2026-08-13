@@ -1,0 +1,22 @@
+ABC TECHNOLOGIES - CORPORATE VPN GUIDE AND POLICY (DEMONSTRATION ONLY)
+
+1. MANDATORY VPN USAGE
+ABC Technologies employees must connect to the corporate GlobalProtect VPN whenever accessing internal corporate systems, development databases, staging servers, or internal portals from outside the corporate office network.
+
+2. VPN GATEWAY ENDPOINTS
+- Americas Region: vpn-us.abctechnologies.com
+- EMEA Region: vpn-eu.abctechnologies.com
+- APAC Region: vpn-ap.abctechnologies.com
+
+3. CONNECTING TO VPN
+1. Launch the Palo Alto GlobalProtect VPN Client on your ABC corporate laptop.
+2. Select your regional gateway endpoint from the dropdown menu.
+3. Enter your ABC corporate Single Sign-On (SSO) credentials (email and password).
+4. Complete Okta Multi-Factor Authentication (MFA) on your registered mobile device.
+5. Once connected, the status icon in your system tray will display a blue checkmark ("Connected").
+
+4. TROUBLESHOOTING VPN ISSUES
+- If connection fails with "Authentication Timeout", verify your internet connection and re-try MFA.
+- If DNS resolution fails, open Command Prompt and run `ipconfig /flushdns`.
+- For persistent connection drops, restart the GlobalProtect service via Services Manager or reboot your laptop.
+- If you are still unable to connect, create an IT Support Ticket via the IT Service Portal or contact the IT Helpdesk at support@abctechnologies.com.
