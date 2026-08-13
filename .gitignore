@@ -6,3 +6,5 @@ data/test_chroma/
 logs/
 .pytest_cache/
 .env
+.env*.local
+.env.local
