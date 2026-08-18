@@ -13,176 +13,8 @@ logger = logging.getLogger(__name__)
 # Initialize Main Agent Backend
 agent = MainSupportAgent()
 
-# Custom CSS for Enterprise AI Dashboard Design System
-CUSTOM_CSS = """
-:root {
-    --bg-dark: #090d16;
-    --bg-card: #111827;
-    --bg-card-hover: #1e293b;
-    --border-color: #334155;
-    --text-main: #f8fafc;
-    --text-muted: #94a3b8;
-    --accent-blue: #38bdf8;
-    --accent-indigo: #6366f1;
-    --accent-green: #22c55e;
-    --accent-amber: #f59e0b;
-    --accent-red: #ef4444;
-}
+# Custom CSS disabled - UI rendered using default native Python Gradio components
 
-body, .gradio-container {
-    background-color: var(--bg-dark) !important;
-    color: var(--text-main) !important;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-}
-
-/* Header Banner */
-.header-container {
-    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 20px 24px;
-    margin-bottom: 16px;
-}
-
-.header-title {
-    font-size: 24px;
-    font-weight: 700;
-    color: #ffffff;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.header-subtitle {
-    font-size: 13px;
-    color: var(--accent-blue);
-    margin-top: 4px;
-    font-weight: 500;
-}
-
-/* Top Status Bar */
-.top-status-bar {
-    background-color: #0f172a;
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    padding: 10px 16px;
-    margin-bottom: 16px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 16px;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.status-badge-pill {
-    background-color: #1e293b;
-    border: 1px solid #334155;
-    border-radius: 20px;
-    padding: 4px 12px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #e2e8f0;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.dot-green {
-    width: 8px;
-    height: 8px;
-    background-color: #22c55e;
-    border-radius: 50%;
-    display: inline-block;
-    box-shadow: 0 0 8px #22c55e;
-}
-
-.dot-amber {
-    width: 8px;
-    height: 8px;
-    background-color: #f59e0b;
-    border-radius: 50%;
-    display: inline-block;
-}
-
-.dot-blue {
-    width: 8px;
-    height: 8px;
-    background-color: #38bdf8;
-    border-radius: 50%;
-    display: inline-block;
-}
-
-/* Cards & Panels */
-.dashboard-card {
-    background-color: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 16px;
-}
-
-/* Chatbot Custom Styling */
-.chatbot-container {
-    border: 1px solid var(--border-color) !important;
-    border-radius: 12px !important;
-    background-color: #0f172a !important;
-}
-
-/* Primary/Secondary Buttons */
-.btn-primary-custom {
-    background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%) !important;
-    border: none !important;
-    color: white !important;
-    font-weight: 600 !important;
-    border-radius: 8px !important;
-}
-
-.btn-primary-custom:hover {
-    background: linear-gradient(135deg, #1d4ed8 0%, #4338ca 100%) !important;
-}
-
-.btn-secondary-custom {
-    background-color: #1e293b !important;
-    border: 1px solid #475569 !important;
-    color: #cbd5e1 !important;
-    border-radius: 8px !important;
-}
-
-.btn-secondary-custom:hover {
-    background-color: #334155 !important;
-    color: white !important;
-}
-
-/* Approval Card Box */
-.approval-card-container {
-    background: linear-gradient(135deg, #451a03 0%, #78350f 100%);
-    border: 2px solid #f59e0b;
-    border-radius: 12px;
-    padding: 16px;
-    margin-top: 12px;
-    margin-bottom: 12px;
-}
-
-.paused-card-container {
-    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
-    border: 2px solid #6366f1;
-    border-radius: 12px;
-    padding: 16px;
-    margin-top: 12px;
-    margin-bottom: 12px;
-}
-
-/* Footer */
-.custom-footer {
-    border-top: 1px solid var(--border-color);
-    padding-top: 16px;
-    margin-top: 24px;
-    text-align: center;
-    font-size: 12px;
-    color: var(--text-muted);
-}
-"""
 
 WELCOME_MSG = """Hello! I'm the **ABC Technologies AI Support Assistant**.
 
@@ -235,101 +67,53 @@ def normalize_history(history_input):
 
 
 def render_top_status_bar(ollama_online: bool = True):
-    return """
-    <div class="top-status-bar">
-        <div class="status-badge-pill"><span class="dot-green"></span> SYSTEM: Operational</div>
-        <div class="status-badge-pill"><span class="dot-green"></span> LLM ROUTER: Active</div>
-        <div class="status-badge-pill"><span class="dot-blue"></span> RAG: ChromaDB Ready</div>
-        <div class="status-badge-pill"><span class="dot-blue"></span> LANGGRAPH: Ready</div>
-        <div class="status-badge-pill"><span class="dot-green"></span> MCP: Mock Servers Ready</div>
-    </div>
-    """
+    return "SYSTEM: Operational | LLM ROUTER: Active | RAG: ChromaDB Ready | LANGGRAPH: Ready | MCP: Mock Servers Ready"
 
 
 def render_agent_control_center(status_badge: str, workflow_name: str, state_status: str, session_id: str):
-    return f"""
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
-        <div style="background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #334155;">
-            <div style="font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Agent Status</div>
-            <div style="font-size: 14px; font-weight: 700; color: #38bdf8; margin-top: 4px;">{status_badge}</div>
-        </div>
-        <div style="background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #334155;">
-            <div style="font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Active Workflow</div>
-            <div style="font-size: 14px; font-weight: 700; color: #a78bfa; margin-top: 4px;">{workflow_name}</div>
-        </div>
-        <div style="background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #334155;">
-            <div style="font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Workflow State</div>
-            <div style="font-size: 14px; font-weight: 700; color: #facc15; margin-top: 4px;">{state_status}</div>
-        </div>
-        <div style="background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #334155;">
-            <div style="font-size: 11px; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Session ID</div>
-            <div style="font-size: 14px; font-weight: 700; color: #4ade80; margin-top: 4px;">REQ-{session_id.upper()}</div>
-        </div>
-    </div>
-    """
+    return f"**Agent Status:** {status_badge}\n**Active Workflow:** {workflow_name}\n**Workflow State:** {state_status}\n**Session ID:** REQ-{session_id.upper()}"
 
 
 def render_architecture_components():
-    return """
-    <div style="background: #0f172a; padding: 14px; border-radius: 10px; border: 1px solid #334155; margin-bottom: 12px;">
-        <div style="font-size: 12px; font-weight: 700; color: #e2e8f0; margin-bottom: 8px;">⚙️ ARCHITECTURE COMPONENTS</div>
-        <div style="display: flex; flex-direction: column; gap: 6px; font-size: 12px;">
-            <div style="display: flex; justify-content: space-between;"><span>🧠 LLM Intent Router</span><span style="color: #4ade80; font-weight: 600;">ACTIVE</span></div>
-            <div style="display: flex; justify-content: space-between;"><span>📚 ChromaDB Vector RAG</span><span style="color: #38bdf8; font-weight: 600;">READY</span></div>
-            <div style="display: flex; justify-content: space-between;"><span>🔄 LangGraph State Machine</span><span style="color: #a78bfa; font-weight: 600;">ACTIVE</span></div>
-            <div style="display: flex; justify-content: space-between;"><span>🔌 Mock MCP Tools Server</span><span style="color: #facc15; font-weight: 600;">READY</span></div>
-            <div style="display: flex; justify-content: space-between;"><span>📊 Observability Engine</span><span style="color: #4ade80; font-weight: 600;">ACTIVE</span></div>
-        </div>
-    </div>
-    """
+    return "**ARCHITECTURE COMPONENTS**\n- LLM Intent Router: ACTIVE\n- ChromaDB Vector RAG: READY\n- LangGraph State Machine: ACTIVE\n- Mock MCP Tools Server: READY\n- Observability Engine: ACTIVE"
 
 
 def render_tools_used(state_dict: dict, is_rag: bool, is_action: bool):
     tools = []
     if is_rag:
-        tools.append('<span style="background: #1e3a8a; color: #93c5fd; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;">ChromaDB RAG Retrieval</span>')
+        tools.append('ChromaDB RAG Retrieval')
     
     wf = state_dict.get("workflow")
     if wf:
-        tools.append(f'<span style="background: #312e81; color: #c7d2fe; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;">LangGraph ({wf})</span>')
+        tools.append(f'LangGraph ({wf})')
     
     if state_dict.get("diagnostic_result"):
-        tools.append('<span style="background: #065f46; color: #a7f3d0; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;">MOCK AWS Diagnostic</span>')
+        tools.append('MOCK AWS Diagnostic')
     
     if state_dict.get("ticket_id"):
         t_id = state_dict.get("ticket_id", "")
         if "SNOW" in t_id:
-            tools.append('<span style="background: #831843; color: #fbcfe8; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;">MOCK ServiceNow Incident</span>')
+            tools.append('MOCK ServiceNow Incident')
         elif "JIRA" in t_id:
-            tools.append('<span style="background: #1e3a8a; color: #bfdbfe; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;">MOCK Jira Ticket</span>')
+            tools.append('MOCK Jira Ticket')
 
     if state_dict.get("notification_status"):
-        tools.append('<span style="background: #701a75; color: #f5d0fe; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;">MOCK Outlook Email</span>')
+        tools.append('MOCK Outlook Email')
 
     if is_action and not tools:
-        tools.append('<span style="background: #1e3a8a; color: #bfdbfe; padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;">MOCK Jira Action</span>')
+        tools.append('MOCK Jira Action')
 
     if not tools:
-        tools_html = '<span style="color: #64748b; font-size: 12px; italic;">No external tools invoked yet</span>'
+        tools_str = "*No external tools invoked yet*"
     else:
-        tools_html = '<div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">' + "".join(tools) + '</div>'
+        tools_str = ", ".join(tools)
 
-    return f"""
-    <div style="background: #0f172a; padding: 14px; border-radius: 10px; border: 1px solid #334155; margin-bottom: 12px;">
-        <div style="font-size: 12px; font-weight: 700; color: #e2e8f0; margin-bottom: 6px;">🛠️ TOOLS USED (ENTERPRISE MOCK REGISTRY)</div>
-        {tools_html}
-    </div>
-    """
+    return f"**TOOLS USED (ENTERPRISE MOCK REGISTRY)**\n{tools_str}"
 
 
 def render_workflow_diagram(workflow_name: str, state_status: str, waiting_for: str):
     if not workflow_name or workflow_name == "None":
-        return """
-        <div style="background: #0f172a; padding: 14px; border-radius: 10px; border: 1px solid #334155; margin-bottom: 12px;">
-            <div style="font-size: 12px; font-weight: 700; color: #94a3b8;">🔄 WORKFLOW GRAPH: IDLE</div>
-            <div style="font-size: 12px; color: #64748b; margin-top: 4px;">No active LangGraph workflow currently running. Select a workflow query to visualize graph execution.</div>
-        </div>
-        """
+        return "**WORKFLOW GRAPH: IDLE**\nNo active LangGraph workflow currently running. Select a workflow query to visualize graph execution."
 
     if workflow_name == "slow_laptop":
         s1 = "✓"
@@ -338,39 +122,14 @@ def render_workflow_diagram(workflow_name: str, state_status: str, waiting_for: 
         s4 = "✓" if state_status in ["WAITING_FOR_APPROVAL", "COMPLETED"] else ("⏳" if state_status == "RUNNING" else "○")
         s5 = "✓" if state_status == "COMPLETED" else ("⚠️" if state_status == "WAITING_FOR_APPROVAL" else "○")
 
-        return f"""
-        <div style="background: #0f172a; padding: 14px; border-radius: 10px; border: 1px solid #334155; margin-bottom: 12px;">
-            <div style="font-size: 12px; font-weight: 700; color: #a78bfa; margin-bottom: 8px;">🔄 WORKFLOW: SLOW LAPTOP (LANGGRAPH)</div>
-            <div style="display: flex; flex-direction: column; gap: 4px; font-size: 12px;">
-                <div>{s1} 1. Request Classified</div>
-                <div>{s2} 2. Collect Operating System</div>
-                <div>{s3} 3. Check Laptop Restart Status</div>
-                <div>{s4} 4. Run AWS Diagnostics (MOCK)</div>
-                <div>{s5} 5. Human Approval & Incident Creation (MOCK)</div>
-            </div>
-        </div>
-        """
+        return f"**WORKFLOW: SLOW LAPTOP (LANGGRAPH)**\n- {s1} 1. Request Classified\n- {s2} 2. Collect Operating System\n- {s3} 3. Check Laptop Restart Status\n- {s4} 4. Run AWS Diagnostics (MOCK)\n- {s5} 5. Human Approval & Incident Creation (MOCK)"
     elif workflow_name == "password_reset":
         s1 = "✓"
         s2 = "⏳" if waiting_for == "otp" else "✓"
         s3 = "✓" if state_status == "COMPLETED" else "○"
-        return f"""
-        <div style="background: #0f172a; padding: 14px; border-radius: 10px; border: 1px solid #334155; margin-bottom: 12px;">
-            <div style="font-size: 12px; font-weight: 700; color: #a78bfa; margin-bottom: 8px;">🔄 WORKFLOW: PASSWORD RESET (LANGGRAPH)</div>
-            <div style="display: flex; flex-direction: column; gap: 4px; font-size: 12px;">
-                <div>{s1} 1. Account Identity Identification</div>
-                <div>{s2} 2. OTP Security Challenge</div>
-                <div>{s3} 3. Password Reset & Notification</div>
-            </div>
-        </div>
-        """
+        return f"**WORKFLOW: PASSWORD RESET (LANGGRAPH)**\n- {s1} 1. Account Identity Identification\n- {s2} 2. OTP Security Challenge\n- {s3} 3. Password Reset & Notification"
     else:
-        return f"""
-        <div style="background: #0f172a; padding: 14px; border-radius: 10px; border: 1px solid #334155; margin-bottom: 12px;">
-            <div style="font-size: 12px; font-weight: 700; color: #a78bfa;">🔄 WORKFLOW: {workflow_name.upper()}</div>
-            <div style="font-size: 12px; color: #38bdf8; margin-top: 4px;">Status: {state_status}</div>
-        </div>
-        """
+        return f"**WORKFLOW: {workflow_name.upper()}**\nStatus: {state_status}"
 
 
 def build_activity_timeline(messages: list, state_status: str, exec_time: float, log_step: str):
@@ -416,10 +175,10 @@ def user_submit_message(message: str, history: list, session_id: str):
         yield (
             normalize_history(history),                                      # 1. chatbot
             "",                                                              # 2. user_input
-            render_agent_control_center("🟢 Ready", "None", "IDLE", session_id or "DEF"), # 3. control_center_html
-            render_architecture_components(),                                # 4. arch_status_html
+            render_agent_control_center("🟢 Ready", "None", "IDLE", session_id or "DEF"), # 3. control_center_md
+            render_architecture_components(),                                # 4. arch_status_md
             render_workflow_diagram("None", "IDLE", ""),                     # 5. workflow_diagram_md
-            render_tools_used({}, False, False),                            # 6. tools_used_html
+            render_tools_used({}, False, False),                            # 6. tools_used_md
             "```\n✓ Ready\n```",                                             # 7. activity_timeline_md
             build_observability_md(session_id or "DEF", "None", "IDLE", 0.0, []), # 8. observability_md
             gr.update(visible=False),                                        # 9. approval_card_box
@@ -486,10 +245,10 @@ def user_submit_message(message: str, history: list, session_id: str):
             if resp_step:
                 updated_history[-1]["content"] = extract_text(resp_step)
 
-            ctrl_html = render_agent_control_center(status_badge, wf_name, state_status, session_id)
+            ctrl_md = render_agent_control_center(status_badge, wf_name, state_status, session_id)
             activity_md = build_activity_timeline(state_dict.get("messages", []), state_status, exec_time, log_step)
-            arch_html = render_architecture_components()
-            tools_html = render_tools_used(state_dict, is_rag, is_action)
+            arch_md = render_architecture_components()
+            tools_md = render_tools_used(state_dict, is_rag, is_action)
             workflow_diagram_md = render_workflow_diagram(wf_name, state_status, waiting_for)
 
             invoked_tools = []
@@ -524,10 +283,10 @@ def user_submit_message(message: str, history: list, session_id: str):
             yield (
                 updated_history,         # 1. chatbot
                 "",                      # 2. user_input
-                ctrl_html,               # 3. control_center_html
-                arch_html,               # 4. arch_status_html
+                ctrl_md,               # 3. control_center_md
+                arch_md,               # 4. arch_status_md
                 workflow_diagram_md,     # 5. workflow_diagram_md
-                tools_html,              # 6. tools_used_html
+                tools_md,              # 6. tools_used_md
                 activity_md,             # 7. activity_timeline_md
                 observability_md,        # 8. observability_md
                 approval_card_vis,       # 9. approval_card_box
@@ -588,10 +347,10 @@ def handle_approval_click(approved: bool, history: list, session_id: str):
                 updated_history[-1]["content"] = extract_text(resp_step)
 
             status_badge = "🟢 Ready" if state_status == "COMPLETED" else "⚙️ Processing..."
-            ctrl_html = render_agent_control_center(status_badge, wf_name, state_status, session_id)
+            ctrl_md = render_agent_control_center(status_badge, wf_name, state_status, session_id)
             activity_md = build_activity_timeline(state_dict.get("messages", []), state_status, exec_time, log_step)
-            arch_html = render_architecture_components()
-            tools_html = render_tools_used(state_dict, False, True)
+            arch_md = render_architecture_components()
+            tools_md = render_tools_used(state_dict, False, True)
             workflow_diagram_md = render_workflow_diagram(wf_name, state_status, "")
 
             invoked_tools = ["LangGraph", "ServiceNow Incident MOCK"]
@@ -601,10 +360,10 @@ def handle_approval_click(approved: bool, history: list, session_id: str):
             yield (
                 updated_history,
                 "",
-                ctrl_html,
-                arch_html,
+                ctrl_md,
+                arch_md,
                 workflow_diagram_md,
-                tools_html,
+                tools_md,
                 activity_md,
                 observability_md,
                 gr.update(visible=False),
@@ -652,10 +411,10 @@ def reset_conversation():
     return (
         list(DEFAULT_CHAT_HISTORY),                                         # 1. chatbot
         "",                                                                 # 2. user_input
-        render_agent_control_center("🟢 Ready", "None", "IDLE", new_session_id), # 3. control_center_html
-        render_architecture_components(),                                   # 4. arch_status_html
+        render_agent_control_center("🟢 Ready", "None", "IDLE", new_session_id), # 3. control_center_md
+        render_architecture_components(),                                   # 4. arch_status_md
         render_workflow_diagram("None", "IDLE", ""),                        # 5. workflow_diagram_md
-        render_tools_used({}, False, False),                               # 6. tools_used_html
+        render_tools_used({}, False, False),                               # 6. tools_used_md
         "```\n✓ Session reset. Ready for new support requests.\n```",      # 7. activity_timeline_md
         build_observability_md(new_session_id, "None", "IDLE", 0.0, []),    # 8. observability_md
         gr.update(visible=False),                                           # 9. approval_card_box
@@ -679,23 +438,14 @@ with gr.Blocks(title="ABC Technologies - Enterprise AI Support Assistant") as de
     workflow_state_state = gr.State(value="IDLE")
 
     # Top Header Banner
-    with gr.Row(elem_classes=["header-container"]):
+    with gr.Row():
         with gr.Column(scale=4):
-            gr.HTML("""
-            <div>
-                <div class="header-title">🏢 ABC TECHNOLOGIES <span style="font-weight: 400; font-size: 18px; color: #94a3b8;">| Enterprise AI Support Assistant</span></div>
-                <div class="header-subtitle">Agentic IT & HR Automation powered by LLM Router + ChromaDB RAG + LangGraph + Mock MCP</div>
-            </div>
-            """)
+            gr.Markdown("## 🏢 ABC TECHNOLOGIES | Enterprise AI Support Assistant\nAgentic IT & HR Automation powered by LLM Router + ChromaDB RAG + LangGraph + Mock MCP")
         with gr.Column(scale=1):
-            gr.HTML("""
-            <div style="text-align: right;">
-                <span class="status-badge-pill"><span class="dot-green"></span> System Operational</span>
-            </div>
-            """)
+            gr.Markdown("**System Operational**")
 
     # Top Status Indicators Bar
-    gr.HTML(render_top_status_bar())
+    gr.Markdown(render_top_status_bar())
 
     # Main Two-Column Dashboard Layout
     with gr.Row():
@@ -706,8 +456,7 @@ with gr.Blocks(title="ABC Technologies - Enterprise AI Support Assistant") as de
             chatbot = gr.Chatbot(
                 value=DEFAULT_CHAT_HISTORY,
                 label="Support Assistant Chat",
-                height=520,
-                elem_classes=["chatbot-container"]
+                height=520
             )
 
             # Input Area
@@ -718,17 +467,17 @@ with gr.Blocks(title="ABC Technologies - Enterprise AI Support Assistant") as de
                     scale=5,
                     lines=1
                 )
-                send_btn = gr.Button("SEND 🚀", variant="primary", scale=1, elem_classes=["btn-primary-custom"])
-                reset_btn = gr.Button("CLEAR 🔄", variant="secondary", scale=1, elem_classes=["btn-secondary-custom"])
+                send_btn = gr.Button("SEND 🚀", variant="primary", scale=1)
+                reset_btn = gr.Button("CLEAR 🔄", variant="secondary", scale=1)
 
             # Quick Demo Buttons
             gr.Markdown("#### 💡 QUICK DEMO SCENARIOS")
             with gr.Row():
-                btn_demo1 = gr.Button("🔐 VPN Policy", elem_classes=["btn-secondary-custom"])
-                btn_demo2 = gr.Button("🐳 Docker Access", elem_classes=["btn-secondary-custom"])
-                btn_demo3 = gr.Button("🔑 Password Reset", elem_classes=["btn-secondary-custom"])
-                btn_demo4 = gr.Button("💻 Slow Laptop", elem_classes=["btn-secondary-custom"])
-                btn_demo5 = gr.Button("🎫 Create Ticket", elem_classes=["btn-secondary-custom"])
+                btn_demo1 = gr.Button("🔐 VPN Policy")
+                btn_demo2 = gr.Button("🐳 Docker Access")
+                btn_demo3 = gr.Button("🔑 Password Reset")
+                btn_demo4 = gr.Button("💻 Slow Laptop")
+                btn_demo5 = gr.Button("🎫 Create Ticket")
 
             # RAG Retrieval Visualizer Panel
             with gr.Group(visible=False) as rag_vis_box:
@@ -745,26 +494,26 @@ with gr.Blocks(title="ABC Technologies - Enterprise AI Support Assistant") as de
             gr.Markdown("### 📊 AGENT CONTROL CENTER")
 
             # Dynamic Metrics Display
-            control_center_html = gr.HTML(render_agent_control_center("🟢 Ready", "None", "IDLE", "DEF"))
+            control_center_md = gr.Markdown(render_agent_control_center("🟢 Ready", "None", "IDLE", "DEF"))
 
             # Architecture Component Status
-            arch_status_html = gr.HTML(render_architecture_components())
+            arch_status_md = gr.Markdown(render_architecture_components())
 
             # Active Workflow Graph Visualizer
-            workflow_diagram_md = gr.HTML(render_workflow_diagram("None", "IDLE", ""))
+            workflow_diagram_md = gr.Markdown(render_workflow_diagram("None", "IDLE", ""))
 
             # Tools Used Badges Display
-            tools_used_html = gr.HTML(render_tools_used({}, False, False))
+            tools_used_md = gr.Markdown(render_tools_used({}, False, False))
 
             # Human-in-the-Loop Approval Card
-            with gr.Group(visible=False, elem_classes=["approval-card-container"]) as approval_card_box:
+            with gr.Group(visible=False) as approval_card_box:
                 approval_desc_md = gr.Markdown("### ⚠️ HUMAN-IN-THE-LOOP APPROVAL REQUIRED")
                 with gr.Row():
-                    approve_btn = gr.Button("APPROVE ✅", variant="primary", elem_classes=["btn-primary-custom"])
+                    approve_btn = gr.Button("APPROVE ✅", variant="primary")
                     reject_btn = gr.Button("REJECT ❌", variant="stop")
 
             # Workflow Paused Card
-            with gr.Group(visible=False, elem_classes=["paused-card-container"]) as workflow_paused_box:
+            with gr.Group(visible=False) as workflow_paused_box:
                 workflow_paused_md = gr.Markdown("### ⏸ WORKFLOW PAUSED")
 
             # Live Activity Timeline Log
@@ -776,22 +525,17 @@ with gr.Blocks(title="ABC Technologies - Enterprise AI Support Assistant") as de
                 observability_md = gr.Markdown(build_observability_md("DEF", "None", "IDLE", 0.0, []))
 
     # Footer
-    gr.HTML("""
-    <div class="custom-footer">
-        <strong>ABC Technologies</strong> • Agentic Enterprise IT Support Assistant | RAG • LangGraph • MCP • Human-in-the-loop • Observability<br/>
-        <span style="color: #64748b;">Demo Environment • All enterprise integrations (ServiceNow, AWS, Jira, Outlook) are MOCKED</span>
-    </div>
-    """)
+    gr.Markdown("**ABC Technologies** • Agentic Enterprise IT Support Assistant | RAG • LangGraph • MCP • Human-in-the-loop • Observability\n*Demo Environment • All enterprise integrations (ServiceNow, AWS, Jira, Outlook) are MOCKED*")
 
     # Wire Event Handlers - Exactly 19 Output Components
     send_inputs = [user_input, chatbot, session_id_state]
     send_outputs = [
         chatbot,              # 1
         user_input,           # 2
-        control_center_html,  # 3
-        arch_status_html,     # 4
+        control_center_md,    # 3
+        arch_status_md,       # 4
         workflow_diagram_md,  # 5
-        tools_used_html,      # 6
+        tools_used_md,        # 6
         activity_timeline_md, # 7
         observability_md,     # 8
         approval_card_box,    # 9
@@ -851,4 +595,4 @@ with gr.Blocks(title="ABC Technologies - Enterprise AI Support Assistant") as de
 
 if __name__ == "__main__":
     logger.info("Starting ABC Technologies Enterprise Support Dashboard on http://127.0.0.1:7860")
-    demo.launch(server_name="127.0.0.1", server_port=7860, inbrowser=True, share=False, css=CUSTOM_CSS, show_error=True)
+    demo.launch(server_name="127.0.0.1", server_port=7860, inbrowser=True, share=False, show_error=True)

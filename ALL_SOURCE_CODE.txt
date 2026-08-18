@@ -1,0 +1,1960 @@
+========================================================================
+    ABC TECHNOLOGIES - ENTERPRISE AI SUPPORT ASSISTANT SOURCE CODE      
+========================================================================
+
+########################################################################
+# FILE: app.py
+########################################################################
+
+import os
+import time
+import uuid
+import logging
+import gradio as gr
+from dotenv import load_dotenv
+
+from main_agent import MainSupportAgent
+
+load_dotenv()
+logger = logging.getLogger(__name__)
+
+# Initialize Main Agent Backend
+agent = MainSupportAgent()
+
+# Custom CSS disabled - UI rendered using default native Python Gradio components
+
+
+WELCOME_MSG = """Hello! I'm the **ABC Technologies AI Support Assistant**.
+
+I can help with:
+• HR and IT policies
+• VPN and software access
+• Password support
+• IT tickets
+• Multi-step troubleshooting
+
+How can I help you today?"""
+
+# Dict format required by Gradio 6.0 Chatbot
+DEFAULT_CHAT_HISTORY = [
+    {"role": "assistant", "content": WELCOME_MSG}
+]
+
+
+def extract_text(content):
+    """Safely extract plain text from string or Gradio 6.0 content object lists."""
+    if isinstance(content, str):
+        return content
+    elif isinstance(content, list) and len(content) > 0:
+        first = content[0]
+        if isinstance(first, dict):
+            return first.get("text", str(first))
+        elif hasattr(first, "text"):
+            return first.text
+    return str(content) if content is not None else ""
+
+
+def normalize_history(history_input):
+    """Convert input history into clean list of dict messages for Gradio Chatbot."""
+    if not history_input:
+        return list(DEFAULT_CHAT_HISTORY)
+    
+    clean = []
+    for item in history_input:
+        if isinstance(item, dict):
+            role = item.get("role", "user")
+            text = extract_text(item.get("content", ""))
+            clean.append({"role": role, "content": text})
+        elif isinstance(item, (list, tuple)) and len(item) == 2:
+            if item[0]:
+                clean.append({"role": "user", "content": str(item[0])})
+            if item[1]:
+                clean.append({"role": "assistant", "content": str(item[1])})
+
+    return clean if clean else list(DEFAULT_CHAT_HISTORY)
+
+
+def render_top_status_bar(ollama_online: bool = True):
+    return "SYSTEM: Operational | LLM ROUTER: Active | RAG: ChromaDB Ready | LANGGRAPH: Ready | MCP: Mock Servers Ready"
+
+
+def render_agent_control_center(status_badge: str, workflow_name: str, state_status: str, session_id: str):
+    return f"**Agent Status:** {status_badge}\n**Active Workflow:** {workflow_name}\n**Workflow State:** {state_status}\n**Session ID:** REQ-{session_id.upper()}"
+
+
+def render_architecture_components():
+    return "**ARCHITECTURE COMPONENTS**\n- LLM Intent Router: ACTIVE\n- ChromaDB Vector RAG: READY\n- LangGraph State Machine: ACTIVE\n- Mock MCP Tools Server: READY\n- Observability Engine: ACTIVE"
+
+
+def render_tools_used(state_dict: dict, is_rag: bool, is_action: bool):
+    tools = []
+    if is_rag:
+        tools.append('ChromaDB RAG Retrieval')
+    
+    wf = state_dict.get("workflow")
+    if wf:
+        tools.append(f'LangGraph ({wf})')
+    
+    if state_dict.get("diagnostic_result"):
+        tools.append('MOCK AWS Diagnostic')
+    
+    if state_dict.get("ticket_id"):
+        t_id = state_dict.get("ticket_id", "")
+        if "SNOW" in t_id:
+            tools.append('MOCK ServiceNow Incident')
+        elif "JIRA" in t_id:
+            tools.append('MOCK Jira Ticket')
+
+    if state_dict.get("notification_status"):
+        tools.append('MOCK Outlook Email')
+
+    if is_action and not tools:
+        tools.append('MOCK Jira Action')
+
+    if not tools:
+        tools_str = "*No external tools invoked yet*"
+    else:
+        tools_str = ", ".join(tools)
+
+    return f"**TOOLS USED (ENTERPRISE MOCK REGISTRY)**\n{tools_str}"
+
+
+def render_workflow_diagram(workflow_name: str, state_status: str, waiting_for: str):
+    if not workflow_name or workflow_name == "None":
+        return "**WORKFLOW GRAPH: IDLE**\nNo active LangGraph workflow currently running. Select a workflow query to visualize graph execution."
+
+    if workflow_name == "slow_laptop":
+        s1 = "✓"
+        s2 = "✓" if waiting_for not in ["operating_system"] else "⏳"
+        s3 = "✓" if waiting_for not in ["operating_system", "restart_status"] else ("⏳" if waiting_for == "restart_status" else "○")
+        s4 = "✓" if state_status in ["WAITING_FOR_APPROVAL", "COMPLETED"] else ("⏳" if state_status == "RUNNING" else "○")
+        s5 = "✓" if state_status == "COMPLETED" else ("⚠️" if state_status == "WAITING_FOR_APPROVAL" else "○")
+
+        return f"**WORKFLOW: SLOW LAPTOP (LANGGRAPH)**\n- {s1} 1. Request Classified\n- {s2} 2. Collect Operating System\n- {s3} 3. Check Laptop Restart Status\n- {s4} 4. Run AWS Diagnostics (MOCK)\n- {s5} 5. Human Approval & Incident Creation (MOCK)"
+    elif workflow_name == "password_reset":
+        s1 = "✓"
+        s2 = "⏳" if waiting_for == "otp" else "✓"
+        s3 = "✓" if state_status == "COMPLETED" else "○"
+        return f"**WORKFLOW: PASSWORD RESET (LANGGRAPH)**\n- {s1} 1. Account Identity Identification\n- {s2} 2. OTP Security Challenge\n- {s3} 3. Password Reset & Notification"
+    else:
+        return f"**WORKFLOW: {workflow_name.upper()}**\nStatus: {state_status}"
+
+
+def build_activity_timeline(messages: list, state_status: str, exec_time: float, log_step: str):
+    events = []
+    if log_step:
+        events.append(f"⏳ {log_step}")
+    
+    if messages:
+        for m in messages:
+            clean_m = m.replace("🧠 ", "").replace("💻 ", "").replace("🔄 ", "").replace("🔍 ", "").replace("📊 ", "")
+            events.append(f"✓ {clean_m}")
+
+    if state_status == "WAITING_FOR_APPROVAL":
+        events.append("⚠️ Action paused: Human Approval Required")
+    elif state_status == "WAITING_FOR_USER":
+        events.append("⏳ Action paused: Waiting for User Input")
+    elif state_status == "COMPLETED":
+        events.append("✓ Execution Completed")
+
+    timeline_text = "\n".join(events[-8:]) if events else "✓ System initialized. Ready for support requests."
+    return f"```\n{timeline_text}\n\n⏱️ Execution time: {exec_time:.2f}s\n```"
+
+
+def build_observability_md(session_id: str, workflow: str, status: str, duration: float, tools: list):
+    tools_str = ", ".join(tools) if tools else "None"
+    return f"""
+**Request ID:** `REQ-{session_id.upper()}`  
+**Current Workflow:** `{workflow or 'None'}`  
+**State:** `{status}`  
+**Duration:** `{duration:.2f}s`  
+**Components:** `LLM Router`, `ChromaDB RAG`, `LangGraph`, `Mock MCP`  
+**Tools Invoked:** `{tools_str}`  
+**Status:** `{status}`
+"""
+
+
+def user_submit_message(message: str, history: list, session_id: str):
+    """
+    Handle user message submit with streaming updates.
+    EVERY yield statement MUST return EXACTLY 19 output values matching send_outputs.
+    """
+    if not message or not message.strip():
+        yield (
+            normalize_history(history),                                      # 1. chatbot
+            "",                                                              # 2. user_input
+            render_agent_control_center("🟢 Ready", "None", "IDLE", session_id or "DEF"), # 3. control_center_md
+            render_architecture_components(),                                # 4. arch_status_md
+            render_workflow_diagram("None", "IDLE", ""),                     # 5. workflow_diagram_md
+            render_tools_used({}, False, False),                            # 6. tools_used_md
+            "```\n✓ Ready\n```",                                             # 7. activity_timeline_md
+            build_observability_md(session_id or "DEF", "None", "IDLE", 0.0, []), # 8. observability_md
+            gr.update(visible=False),                                        # 9. approval_card_box
+            "No active approval",                                            # 10. approval_desc_md
+            gr.update(visible=False),                                        # 11. workflow_paused_box
+            "",                                                              # 12. workflow_paused_md
+            gr.update(visible=False),                                        # 13. rag_vis_box
+            "",                                                              # 14. rag_info_md
+            gr.update(visible=False),                                        # 15. mcp_vis_box
+            "",                                                              # 16. mcp_info_md
+            session_id or "DEF",                                             # 17. session_id_state
+            "🟢 Ready",                                                       # 18. agent_status_state
+            "IDLE"                                                           # 19. workflow_state_state
+        )
+        return
+
+    if not session_id:
+        session_id = str(uuid.uuid4())[:8]
+
+    start_time = time.time()
+    
+    # Normalize history to clean dict messages
+    updated_history = normalize_history(history)
+    updated_history.append({"role": "user", "content": message})
+    updated_history.append({"role": "assistant", "content": "Analyzing request..."})
+
+    try:
+        # Stream intermediate steps to Gradio UI
+        for log_step, resp_step, state_dict in agent.process_message_stream(message, thread_id=session_id):
+            exec_time = time.time() - start_time
+            
+            wf_name = state_dict.get("workflow") or "None"
+            state_status = state_dict.get("status") or "RUNNING"
+            waiting_for = state_dict.get("waiting_for") or ""
+
+            is_rag = "knowledge" in log_step.lower() or "knowledge base" in log_step.lower() or "retrieved" in log_step.lower()
+            is_action = "mcp tool" in log_step.lower() or "jira" in log_step.lower() or "ticket" in log_step.lower()
+
+            if state_status == "WAITING_FOR_APPROVAL":
+                status_badge = "⚠️ Approval Required"
+                approval_card_vis = gr.update(visible=True)
+                approval_text = "### ⚠️ HUMAN-IN-THE-LOOP APPROVAL REQUIRED\n\n**Action:** Create ServiceNow Incident (MOCK)\n**Reason:** Unresolved hardware/VPN issue requires IT Support Dispatch."
+                paused_card_vis = gr.update(visible=False)
+                paused_text = ""
+            elif state_status == "WAITING_FOR_USER":
+                status_badge = "⏸ Workflow Paused"
+                approval_card_vis = gr.update(visible=False)
+                approval_text = ""
+                paused_card_vis = gr.update(visible=True)
+                paused_text = f"### ⏸ WORKFLOW PAUSED\n\nThe workflow requires user input to proceed.\n\n**Awaiting:** `{waiting_for}`"
+            elif state_status == "COMPLETED":
+                status_badge = "🟢 Ready"
+                approval_card_vis = gr.update(visible=False)
+                approval_text = ""
+                paused_card_vis = gr.update(visible=False)
+                paused_text = ""
+            else:
+                status_badge = "⚙️ Processing..."
+                approval_card_vis = gr.update(visible=False)
+                approval_text = ""
+                paused_card_vis = gr.update(visible=False)
+                paused_text = ""
+
+            if resp_step:
+                updated_history[-1]["content"] = extract_text(resp_step)
+
+            ctrl_md = render_agent_control_center(status_badge, wf_name, state_status, session_id)
+            activity_md = build_activity_timeline(state_dict.get("messages", []), state_status, exec_time, log_step)
+            arch_md = render_architecture_components()
+            tools_md = render_tools_used(state_dict, is_rag, is_action)
+            workflow_diagram_md = render_workflow_diagram(wf_name, state_status, waiting_for)
+
+            invoked_tools = []
+            if is_rag:
+                invoked_tools.append("ChromaDB RAG")
+            if wf_name != "None":
+                invoked_tools.append(f"LangGraph ({wf_name})")
+            if state_dict.get("diagnostic_result"):
+                invoked_tools.append("AWS Diagnostic MOCK")
+            if state_dict.get("ticket_id"):
+                invoked_tools.append(f"{state_dict.get('ticket_id')} MOCK")
+
+            observability_md = build_observability_md(session_id, wf_name, state_status, exec_time, invoked_tools)
+
+            # RAG Vis panel
+            if is_rag:
+                rag_vis = gr.update(visible=True)
+                rag_info = f"**Query:** `{message}`\n\n**Source:** ABC Technologies Knowledge Base (`docs/`)\n\n**Status:** Grounded Response Generated via RAG"
+            else:
+                rag_vis = gr.update(visible=False)
+                rag_info = ""
+
+            # MCP Vis panel
+            if is_action or state_dict.get("ticket_id"):
+                mcp_vis = gr.update(visible=True)
+                mcp_info = f"**Tool Requested:** `{state_dict.get('ticket_id', 'jira.create_ticket')}`\n\n**Server:** Mock MCP Enterprise Server\n\n**Status:** Execution Success"
+            else:
+                mcp_vis = gr.update(visible=False)
+                mcp_info = ""
+
+            # ALWAYS YIELD EXACTLY 19 OUTPUT VALUES MATCHING send_outputs
+            yield (
+                updated_history,         # 1. chatbot
+                "",                      # 2. user_input
+                ctrl_md,               # 3. control_center_md
+                arch_md,               # 4. arch_status_md
+                workflow_diagram_md,     # 5. workflow_diagram_md
+                tools_md,              # 6. tools_used_md
+                activity_md,             # 7. activity_timeline_md
+                observability_md,        # 8. observability_md
+                approval_card_vis,       # 9. approval_card_box
+                approval_text,           # 10. approval_desc_md
+                paused_card_vis,         # 11. workflow_paused_box
+                paused_text,             # 12. workflow_paused_md
+                rag_vis,                 # 13. rag_vis_box
+                rag_info,                # 14. rag_info_md
+                mcp_vis,                 # 15. mcp_vis_box
+                mcp_info,                # 16. mcp_info_md
+                session_id,              # 17. session_id_state
+                status_badge,            # 18. agent_status_state
+                state_status             # 19. workflow_state_state
+            )
+
+    except Exception as e:
+        logger.error(f"Error processing message stream: {e}", exc_info=True)
+        updated_history[-1]["content"] = f"An error occurred: {str(e)}"
+        yield (
+            updated_history,
+            "",
+            render_agent_control_center("❌ Error", "None", "ERROR", session_id),
+            render_architecture_components(),
+            render_workflow_diagram("None", "ERROR", ""),
+            render_tools_used({}, False, False),
+            f"```\n❌ Error: {str(e)}\n```",
+            build_observability_md(session_id, "None", "ERROR", 0.0, []),
+            gr.update(visible=False),
+            "",
+            gr.update(visible=False),
+            "",
+            gr.update(visible=False),
+            "",
+            gr.update(visible=False),
+            "",
+            session_id,
+            "❌ Error",
+            "ERROR"
+        )
+
+
+def handle_approval_click(approved: bool, history: list, session_id: str):
+    """Handle Approve or Reject button click. ALWAYS yields 19 output values."""
+    if not session_id:
+        session_id = "default_session"
+
+    start_time = time.time()
+    updated_history = normalize_history(history)
+    updated_history.append({"role": "assistant", "content": "Processing approval..."})
+
+    try:
+        for log_step, resp_step, state_dict in agent.handle_approval_action(session_id, approved=approved):
+            exec_time = time.time() - start_time
+            wf_name = state_dict.get("workflow") or "None"
+            state_status = state_dict.get("status") or "COMPLETED"
+
+            if resp_step:
+                updated_history[-1]["content"] = extract_text(resp_step)
+
+            status_badge = "🟢 Ready" if state_status == "COMPLETED" else "⚙️ Processing..."
+            ctrl_md = render_agent_control_center(status_badge, wf_name, state_status, session_id)
+            activity_md = build_activity_timeline(state_dict.get("messages", []), state_status, exec_time, log_step)
+            arch_md = render_architecture_components()
+            tools_md = render_tools_used(state_dict, False, True)
+            workflow_diagram_md = render_workflow_diagram(wf_name, state_status, "")
+
+            invoked_tools = ["LangGraph", "ServiceNow Incident MOCK"]
+            observability_md = build_observability_md(session_id, wf_name, state_status, exec_time, invoked_tools)
+
+            # ALWAYS YIELD EXACTLY 19 OUTPUT VALUES MATCHING send_outputs
+            yield (
+                updated_history,
+                "",
+                ctrl_md,
+                arch_md,
+                workflow_diagram_md,
+                tools_md,
+                activity_md,
+                observability_md,
+                gr.update(visible=False),
+                "Approval Action Executed",
+                gr.update(visible=False),
+                "",
+                gr.update(visible=False),
+                "",
+                gr.update(visible=True),
+                f"**MCP Action:** ServiceNow Incident Creation {'Approved ✅' if approved else 'Rejected ❌'}",
+                session_id,
+                status_badge,
+                state_status
+            )
+    except Exception as e:
+        logger.error(f"Error handling approval action: {e}", exc_info=True)
+        updated_history[-1]["content"] = f"Approval error: {str(e)}"
+        yield (
+            updated_history,
+            "",
+            render_agent_control_center("❌ Error", "None", "ERROR", session_id),
+            render_architecture_components(),
+            render_workflow_diagram("None", "ERROR", ""),
+            render_tools_used({}, False, False),
+            f"```\n❌ Approval Error: {str(e)}\n```",
+            build_observability_md(session_id, "None", "ERROR", 0.0, []),
+            gr.update(visible=False),
+            "",
+            gr.update(visible=False),
+            "",
+            gr.update(visible=False),
+            "",
+            gr.update(visible=False),
+            "",
+            session_id,
+            "❌ Error",
+            "ERROR"
+        )
+
+
+def reset_conversation():
+    """Reset the Gradio conversation UI and session state. ALWAYS returns 19 output values."""
+    new_session_id = str(uuid.uuid4())[:8]
+    agent.reset_thread(new_session_id)
+    return (
+        list(DEFAULT_CHAT_HISTORY),                                         # 1. chatbot
+        "",                                                                 # 2. user_input
+        render_agent_control_center("🟢 Ready", "None", "IDLE", new_session_id), # 3. control_center_md
+        render_architecture_components(),                                   # 4. arch_status_md
+        render_workflow_diagram("None", "IDLE", ""),                        # 5. workflow_diagram_md
+        render_tools_used({}, False, False),                               # 6. tools_used_md
+        "```\n✓ Session reset. Ready for new support requests.\n```",      # 7. activity_timeline_md
+        build_observability_md(new_session_id, "None", "IDLE", 0.0, []),    # 8. observability_md
+        gr.update(visible=False),                                           # 9. approval_card_box
+        "",                                                                 # 10. approval_desc_md
+        gr.update(visible=False),                                           # 11. workflow_paused_box
+        "",                                                                 # 12. workflow_paused_md
+        gr.update(visible=False),                                           # 13. rag_vis_box
+        "",                                                                 # 14. rag_info_md
+        gr.update(visible=False),                                           # 15. mcp_vis_box
+        "",                                                                 # 16. mcp_info_md
+        new_session_id,                                                     # 17. session_id_state
+        "🟢 Ready",                                                          # 18. agent_status_state
+        "IDLE"                                                              # 19. workflow_state_state
+    )
+
+
+# Build Polished Gradio Enterprise AI Support Dashboard UI
+with gr.Blocks(title="ABC Technologies - Enterprise AI Support Assistant") as demo:
+    session_id_state = gr.State(value=lambda: str(uuid.uuid4())[:8])
+    agent_status_state = gr.State(value="🟢 Ready")
+    workflow_state_state = gr.State(value="IDLE")
+
+    # Top Header Banner
+    with gr.Row():
+        with gr.Column(scale=4):
+            gr.Markdown("## 🏢 ABC TECHNOLOGIES | Enterprise AI Support Assistant\nAgentic IT & HR Automation powered by LLM Router + ChromaDB RAG + LangGraph + Mock MCP")
+        with gr.Column(scale=1):
+            gr.Markdown("**System Operational**")
+
+    # Top Status Indicators Bar
+    gr.Markdown(render_top_status_bar())
+
+    # Main Two-Column Dashboard Layout
+    with gr.Row():
+        # LEFT COLUMN (~68% width): Support Chat & Visualizers
+        with gr.Column(scale=7):
+            gr.Markdown("### 💬 AI Support Chat Window")
+            
+            chatbot = gr.Chatbot(
+                value=DEFAULT_CHAT_HISTORY,
+                label="Support Assistant Chat",
+                height=520
+            )
+
+            # Input Area
+            with gr.Row():
+                user_input = gr.Textbox(
+                    placeholder="Describe your IT or HR support request (e.g. 'What is the VPN policy?', 'My laptop is extremely slow', 'I forgot my password')...",
+                    label="Employee Input",
+                    scale=5,
+                    lines=1
+                )
+                send_btn = gr.Button("SEND 🚀", variant="primary", scale=1)
+                reset_btn = gr.Button("CLEAR 🔄", variant="secondary", scale=1)
+
+            # Quick Demo Buttons
+            gr.Markdown("#### 💡 QUICK DEMO SCENARIOS")
+            with gr.Row():
+                btn_demo1 = gr.Button("🔐 VPN Policy")
+                btn_demo2 = gr.Button("🐳 Docker Access")
+                btn_demo3 = gr.Button("🔑 Password Reset")
+                btn_demo4 = gr.Button("💻 Slow Laptop")
+                btn_demo5 = gr.Button("🎫 Create Ticket")
+
+            # RAG Retrieval Visualizer Panel
+            with gr.Group(visible=False) as rag_vis_box:
+                gr.Markdown("### 📚 KNOWLEDGE BASE RETRIEVAL (ChromaDB RAG)")
+                rag_info_md = gr.Markdown("")
+
+            # MCP Tool Execution Visualizer Panel
+            with gr.Group(visible=False) as mcp_vis_box:
+                gr.Markdown("### ⚡ ENTERPRISE MCP TOOL EXECUTION")
+                mcp_info_md = gr.Markdown("")
+
+        # RIGHT COLUMN (~32% width): Agent & Workflow Control Center
+        with gr.Column(scale=3):
+            gr.Markdown("### 📊 AGENT CONTROL CENTER")
+
+            # Dynamic Metrics Display
+            control_center_md = gr.Markdown(render_agent_control_center("🟢 Ready", "None", "IDLE", "DEF"))
+
+            # Architecture Component Status
+            arch_status_md = gr.Markdown(render_architecture_components())
+
+            # Active Workflow Graph Visualizer
+            workflow_diagram_md = gr.Markdown(render_workflow_diagram("None", "IDLE", ""))
+
+            # Tools Used Badges Display
+            tools_used_md = gr.Markdown(render_tools_used({}, False, False))
+
+            # Human-in-the-Loop Approval Card
+            with gr.Group(visible=False) as approval_card_box:
+                approval_desc_md = gr.Markdown("### ⚠️ HUMAN-IN-THE-LOOP APPROVAL REQUIRED")
+                with gr.Row():
+                    approve_btn = gr.Button("APPROVE ✅", variant="primary")
+                    reject_btn = gr.Button("REJECT ❌", variant="stop")
+
+            # Workflow Paused Card
+            with gr.Group(visible=False) as workflow_paused_box:
+                workflow_paused_md = gr.Markdown("### ⏸ WORKFLOW PAUSED")
+
+            # Live Activity Timeline Log
+            gr.Markdown("#### ⏱️ LIVE EXECUTION TIMELINE")
+            activity_timeline_md = gr.Markdown("```\n✓ System initialized. Ready for support requests.\n```")
+
+            # Observability Accordion Panel
+            with gr.Accordion("🔍 SYSTEM OBSERVABILITY & TELEMETRY", open=False):
+                observability_md = gr.Markdown(build_observability_md("DEF", "None", "IDLE", 0.0, []))
+
+    # Footer
+    gr.Markdown("**ABC Technologies** • Agentic Enterprise IT Support Assistant | RAG • LangGraph • MCP • Human-in-the-loop • Observability\n*Demo Environment • All enterprise integrations (ServiceNow, AWS, Jira, Outlook) are MOCKED*")
+
+    # Wire Event Handlers - Exactly 19 Output Components
+    send_inputs = [user_input, chatbot, session_id_state]
+    send_outputs = [
+        chatbot,              # 1
+        user_input,           # 2
+        control_center_md,    # 3
+        arch_status_md,       # 4
+        workflow_diagram_md,  # 5
+        tools_used_md,        # 6
+        activity_timeline_md, # 7
+        observability_md,     # 8
+        approval_card_box,    # 9
+        approval_desc_md,     # 10
+        workflow_paused_box,  # 11
+        workflow_paused_md,   # 12
+        rag_vis_box,          # 13
+        rag_info_md,          # 14
+        mcp_vis_box,          # 15
+        mcp_info_md,          # 16
+        session_id_state,     # 17
+        agent_status_state,   # 18
+        workflow_state_state  # 19
+    ]
+
+    # Generator callbacks for Event Handlers using yield from to yield all 19 outputs cleanly
+    def handle_user_submit(msg, hist, sess):
+        yield from user_submit_message(msg, hist, sess)
+
+    def handle_approve(hist, sess):
+        yield from handle_approval_click(True, hist, sess)
+
+    def handle_reject(hist, sess):
+        yield from handle_approval_click(False, hist, sess)
+
+    def handle_demo_vpn(hist, sess):
+        yield from user_submit_message("What is the VPN policy?", hist, sess)
+
+    def handle_demo_docker(hist, sess):
+        yield from user_submit_message("How do I request Docker access?", hist, sess)
+
+    def handle_demo_pwd(hist, sess):
+        yield from user_submit_message("I forgot my password.", hist, sess)
+
+    def handle_demo_laptop(hist, sess):
+        yield from user_submit_message("My laptop is extremely slow.", hist, sess)
+
+    def handle_demo_ticket(hist, sess):
+        yield from user_submit_message("Create a ticket for my VPN issue.", hist, sess)
+
+    # Event Bindings
+    user_input.submit(handle_user_submit, inputs=send_inputs, outputs=send_outputs)
+    send_btn.click(handle_user_submit, inputs=send_inputs, outputs=send_outputs)
+
+    approve_btn.click(handle_approve, inputs=[chatbot, session_id_state], outputs=send_outputs)
+    reject_btn.click(handle_reject, inputs=[chatbot, session_id_state], outputs=send_outputs)
+
+    reset_btn.click(reset_conversation, inputs=[], outputs=send_outputs)
+
+    # Preset Quick Demo Query Event Bindings
+    btn_demo1.click(handle_demo_vpn, inputs=[chatbot, session_id_state], outputs=send_outputs)
+    btn_demo2.click(handle_demo_docker, inputs=[chatbot, session_id_state], outputs=send_outputs)
+    btn_demo3.click(handle_demo_pwd, inputs=[chatbot, session_id_state], outputs=send_outputs)
+    btn_demo4.click(handle_demo_laptop, inputs=[chatbot, session_id_state], outputs=send_outputs)
+    btn_demo5.click(handle_demo_ticket, inputs=[chatbot, session_id_state], outputs=send_outputs)
+
+
+if __name__ == "__main__":
+    logger.info("Starting ABC Technologies Enterprise Support Dashboard on http://127.0.0.1:7860")
+    demo.launch(server_name="127.0.0.1", server_port=7860, inbrowser=True, share=False, show_error=True)
+
+
+========================================================================
+
+########################################################################
+# FILE: main_agent.py
+########################################################################
+
+import os
+import re
+import copy
+import logging
+from typing import Dict, Any, Generator, Optional, Tuple, Literal
+from pydantic import BaseModel, Field
+from dotenv import load_dotenv
+
+from rag_pipeline import RAGPipeline
+from mock_mcp_servers import call_mcp_tool
+from langgraph_workflow import (
+    SLOW_LAPTOP_APP,
+    PASSWORD_RESET_APP,
+    VPN_WORKFLOW_APP,
+    get_or_create_session,
+    reset_session,
+    _WORKFLOW_SESSIONS,
+    SupportState
+)
+
+load_dotenv()
+
+# Setup logging
+LOG_PATH = os.getenv("LOG_PATH", "logs/agent.log")
+os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
+
+logger = logging.getLogger("ABCAgent")
+logger.setLevel(logging.INFO)
+file_handler = logging.FileHandler(LOG_PATH)
+file_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s] [%(name)s]: %(message)s"))
+if not logger.handlers:
+    logger.addHandler(file_handler)
+
+
+class RouterDecision(BaseModel):
+    intent: Literal["knowledge", "action", "workflow"]
+    workflow: Optional[str] = None
+    action: Optional[str] = None
+    confidence: float = Field(ge=0.0, le=1.0)
+
+
+def is_valid_workflow_input(waiting_for: Optional[str], user_input: str) -> bool:
+    """
+    Determine if user_input is intended as valid input for the current workflow step,
+    or if it represents a brand-new support request that should be re-routed.
+    """
+    if not waiting_for or not user_input or not user_input.strip():
+        return False
+    
+    text = user_input.strip().lower()
+    
+    # Phrases that strongly indicate a NEW support request rather than workflow continuation
+    new_req_phrases = [
+        "laptop is extremely slow", "laptop slow", "computer slow", "pc slow", "system slow",
+        "forgot my password", "forgot password", "reset my password", "reset password",
+        "create a ticket", "create ticket", "create an it ticket", "create an incident",
+        "vpn policy", "docker access", "leave days", "reimbursement", "onboarding", "policy",
+        "what is", "how do i", "how can i", "vpn is not working", "vpn issue"
+    ]
+
+    # 1. OTP Validation Step (Password Reset)
+    if waiting_for == "otp":
+        has_digits = bool(re.search(r'\b\d{4,8}\b', text)) or bool(re.search(r'^\d[\d\s\-]{3,8}\d$', text))
+        has_new_req = any(phrase in text for phrase in new_req_phrases) and not ("otp" in text or "code" in text)
+        if has_digits and not has_new_req:
+            return True
+        return False
+
+    # Pure digits belong to OTP validation, not OS or Yes/No answers
+    if text.isdigit():
+        return False
+
+    # 2. Operating System Step (Slow Laptop / VPN)
+    elif waiting_for in ["operating_system", "vpn_os"]:
+        os_keywords = ["windows", "win", "mac", "macos", "linux", "ubuntu", "apple", "win11", "win10"]
+        has_os = any(kw in text for kw in os_keywords)
+        has_new_req = any(phrase in text for phrase in new_req_phrases)
+        if has_os and not has_new_req:
+            return True
+        if len(text) < 20 and not has_new_req and text.isalpha():
+            return True
+        return False
+
+    # 3. Restart / Resolution / Approval Step
+    elif waiting_for in ["restart_status", "resolution_status", "vpn_resolution", "approval"]:
+        yesno_keywords = ["yes", "y", "no", "n", "restarted", "did", "done", "fixed", "resolved", "approve", "reject"]
+        has_yesno = any(kw in text for kw in yesno_keywords)
+        has_new_req = any(phrase in text for phrase in new_req_phrases)
+        if has_yesno and not has_new_req:
+            return True
+        if len(text) < 15 and not has_new_req and text.isalpha():
+            return True
+        return False
+
+    return False
+
+
+class MainSupportAgent:
+    def __init__(self, ollama_model: str = os.getenv("OLLAMA_MODEL", "gpt-oss:120b-cloud")):
+        self.ollama_model = ollama_model
+        logger.info(f"Initializing MainSupportAgent with model: {self.ollama_model}")
+        
+        # Initialize RAG Pipeline
+        self.rag_pipeline = RAGPipeline(ollama_model=self.ollama_model)
+        self.rag_pipeline.build_vector_store()
+
+    def classify_intent(self, user_input: str) -> RouterDecision:
+        """Classify incoming user query into knowledge, action, or workflow intent."""
+        text = user_input.strip().lower()
+
+        # Direct Action Matching (Takes precedence over general topic keywords)
+        if text.startswith("create a ticket") or text.startswith("create ticket") or text.startswith("create an it ticket") or text.startswith("create an incident") or "create a ticket for" in text or "create a jira ticket" in text:
+            return RouterDecision(intent="action", action="jira.create_ticket", confidence=0.95)
+
+        # Deterministic Workflow Intent Matching
+        if any(w in text for w in ["laptop is extremely slow", "laptop slow", "computer slow", "pc slow", "system slow", "laptop freezing", "laptop hanging"]):
+            return RouterDecision(intent="workflow", workflow="slow_laptop", confidence=0.98)
+        
+        if any(w in text for w in ["forgot my password", "forgot password", "reset my password", "reset password", "change password", "account locked"]):
+            return RouterDecision(intent="workflow", workflow="password_reset", confidence=0.98)
+            
+        if any(w in text for w in ["vpn is not working", "vpn not working", "vpn issue", "vpn fails", "cannot connect to vpn", "vpn connection issue"]) and not ("policy" in text or "what is" in text or "guide" in text):
+            return RouterDecision(intent="workflow", workflow="vpn_troubleshooting", confidence=0.95)
+
+        if any(w in text for w in ["vpn policy", "docker access", "leave days", "reimbursement", "onboarding", "policy", "how do i", "how can i", "what is"]):
+            return RouterDecision(intent="knowledge", confidence=0.95)
+
+        # Attempt structured Ollama LLM intent classification if available
+        try:
+            from langchain_ollama import OllamaLLM
+            llm = OllamaLLM(model=self.ollama_model, timeout=5)
+            prompt = (
+                "Classify the following user query for an IT support assistant.\n"
+                "Intents: 'knowledge' (for policy/how-to questions), 'action' (direct ticket/email creation), 'workflow' (multi-step issue resolution like slow laptop, password reset, vpn issue).\n"
+                "Query: " + user_input + "\n"
+                "Respond ONLY in JSON format: {\"intent\": \"...\", \"workflow\": \"...\", \"confidence\": 0.95}"
+            )
+            res = llm.invoke(prompt)
+            if "knowledge" in res.lower():
+                return RouterDecision(intent="knowledge", confidence=0.90)
+            elif "action" in res.lower():
+                return RouterDecision(intent="action", action="jira.create_ticket", confidence=0.90)
+            elif "password" in res.lower():
+                return RouterDecision(intent="workflow", workflow="password_reset", confidence=0.95)
+            elif "slow" in res.lower():
+                return RouterDecision(intent="workflow", workflow="slow_laptop", confidence=0.95)
+        except Exception as e:
+            logger.debug(f"LLM router fallback used due to: {e}")
+
+        # Out-of-scope fallback detection
+        out_of_scope_topics = ["weather", "sports", "recipe", "joke", "movie", "president", "stock"]
+        if any(topic in text for topic in out_of_scope_topics):
+            return RouterDecision(intent="knowledge", confidence=0.10)
+
+        # Default fallback to knowledge search
+        return RouterDecision(intent="knowledge", confidence=0.80)
+
+    def process_message_stream(
+        self,
+        user_input: str,
+        thread_id: str = "default_session"
+    ) -> Generator[Tuple[str, str, Dict[str, Any]], None, None]:
+        """
+        Process incoming user message with streaming execution updates.
+        Yields tuples of: (activity_log_text, response_text, state_dict)
+        """
+        logger.info(f"REQUEST_RECEIVED [thread_id={thread_id}]: {user_input}")
+        session = get_or_create_session(thread_id)
+
+        w_name = session.get("workflow")
+        waiting_for = session.get("waiting_for")
+        status = session.get("status")
+        cur_suspended = copy.deepcopy(session.get("suspended_workflows", {}))
+
+        # 1. Check if user input is valid for any SUSPENDED password_reset workflow waiting for OTP
+        if "password_reset" in cur_suspended and is_valid_workflow_input("otp", user_input):
+            logger.info(f"WORKFLOW_RESTORED_FROM_SUSPENDED [thread_id={thread_id}] workflow=password_reset")
+            saved_pwd = cur_suspended.pop("password_reset")
+            
+            # If current active workflow was waiting for something else, suspend it
+            if status in ["WAITING_FOR_USER", "WAITING_FOR_APPROVAL"] and w_name and w_name != "password_reset":
+                saved_active = copy.deepcopy(dict(session))
+                saved_active.pop("suspended_workflows", None)
+                cur_suspended[w_name] = saved_active
+
+            session.clear()
+            session.update(saved_pwd)
+            session["suspended_workflows"] = cur_suspended
+            session["user_request"] = user_input
+            
+            yield "🔑 Resuming suspended password reset workflow with OTP...", "Checking OTP...", session
+
+            updated_state = PASSWORD_RESET_APP.invoke(session)
+            updated_state["suspended_workflows"] = cur_suspended
+            _WORKFLOW_SESSIONS[thread_id] = updated_state
+            logs = "\n".join(updated_state.get("messages", []))
+            logger.info(f"WORKFLOW_STATE_CHANGE [thread_id={thread_id}] status={updated_state.get('status')}")
+            yield logs, updated_state.get("final_response", ""), updated_state
+            return
+
+        # 2. Check if user input is valid for the ACTIVE workflow step
+        if status in ["WAITING_FOR_USER", "WAITING_FOR_APPROVAL"] and is_valid_workflow_input(waiting_for, user_input):
+            logger.info(f"WORKFLOW_RESUMED [thread_id={thread_id}] waiting_for={waiting_for}")
+            yield f"▶️ Resuming active workflow ({w_name})...", "Processing your input...", session
+            
+            if w_name == "slow_laptop":
+                if waiting_for == "operating_system":
+                    session["operating_system"] = user_input
+                    yield "💻 OS registered: " + user_input, "Processing...", session
+                elif waiting_for == "restart_status":
+                    restarted = True if any(w in user_input.lower() for w in ["yes", "y", "restarted", "did"]) else False
+                    session["restarted"] = restarted
+                    yield "🔄 Restart status recorded.", "Processing...", session
+                elif waiting_for == "resolution_status":
+                    resolved = True if any(w in user_input.lower() for w in ["yes", "y", "fixed", "resolved"]) else False
+                    session["resolved"] = resolved
+                    yield ("✅ Resolution confirmed." if resolved else "⚠️ Issue unresolved."), "Processing...", session
+                elif waiting_for == "approval":
+                    approved = True if "approve" in user_input.lower() else False
+                    session["approved"] = approved
+                    yield ("👍 Approval granted." if approved else "👎 Approval rejected."), "Processing...", session
+
+                updated_state = SLOW_LAPTOP_APP.invoke(session)
+                updated_state["suspended_workflows"] = cur_suspended
+                _WORKFLOW_SESSIONS[thread_id] = updated_state
+                logs = "\n".join(updated_state.get("messages", []))
+                logger.info(f"WORKFLOW_STATE_CHANGE [thread_id={thread_id}] status={updated_state.get('status')}")
+                yield logs, updated_state.get("final_response", ""), updated_state
+                return
+
+            elif w_name == "password_reset":
+                if waiting_for == "otp":
+                    session["user_request"] = user_input
+                    yield "🔑 Validating OTP entry...", "Checking OTP...", session
+                
+                updated_state = PASSWORD_RESET_APP.invoke(session)
+                updated_state["suspended_workflows"] = cur_suspended
+                _WORKFLOW_SESSIONS[thread_id] = updated_state
+                logs = "\n".join(updated_state.get("messages", []))
+                logger.info(f"WORKFLOW_STATE_CHANGE [thread_id={thread_id}] status={updated_state.get('status')}")
+                yield logs, updated_state.get("final_response", ""), updated_state
+                return
+
+            elif w_name == "vpn_troubleshooting":
+                if waiting_for == "vpn_os":
+                    session["operating_system"] = user_input
+                elif waiting_for == "vpn_resolution":
+                    session["resolved"] = True if "yes" in user_input.lower() else False
+                
+                updated_state = VPN_WORKFLOW_APP.invoke(session)
+                updated_state["suspended_workflows"] = cur_suspended
+                _WORKFLOW_SESSIONS[thread_id] = updated_state
+                logs = "\n".join(updated_state.get("messages", []))
+                yield logs, updated_state.get("final_response", ""), updated_state
+                return
+
+        # 3. If active workflow existed but user message was NOT valid input for it -> SUSPEND active workflow
+        if status in ["WAITING_FOR_USER", "WAITING_FOR_APPROVAL"] and w_name:
+            logger.info(f"WORKFLOW_SUSPENDED [thread_id={thread_id}] workflow={w_name}")
+            saved_copy = copy.deepcopy(dict(session))
+            saved_copy.pop("suspended_workflows", None)
+            cur_suspended[w_name] = saved_copy
+            session["suspended_workflows"] = cur_suspended
+            yield f"⏸ Suspended workflow '{w_name}' to process new request...", "Routing new request...", session
+
+        # Handle Out-of-Scope / Non-IT Questions
+        out_of_scope_topics = ["weather", "sports", "recipe", "joke", "movie", "president", "stock", "tomorrow"]
+        if any(topic in user_input.lower() for topic in out_of_scope_topics) and not any(k in user_input.lower() for k in ["vpn", "leave", "docker", "policy", "ticket", "password", "laptop"]):
+            logger.info("OUT_OF_SCOPE_QUERY")
+            out_resp = "I can help with ABC Technologies HR and IT support requests, but I don't have information about that topic."
+            yield "ℹ️ Query out of scope.", out_resp, session
+            return
+
+        # Standard Intent Routing (New Request)
+        yield "🧠 Classifying request...", "Analyzing request...", session
+        decision = self.classify_intent(user_input)
+        logger.info(f"ROUTER_DECISION: intent={decision.intent}, workflow={decision.workflow}, confidence={decision.confidence}")
+
+        if decision.intent == "knowledge":
+            yield "🔎 Searching ABC Technologies knowledge base...", "Retrieving policy documents...", session
+            docs = self.rag_pipeline.retrieve_context(user_input, top_k=3)
+            yield f"📚 Retrieved {len(docs)} relevant policy document chunks...", "Generating grounded answer...", session
+            
+            grounded_ans = self.rag_pipeline.generate_grounded_response(user_input, docs)
+            logger.info("RAG_RESPONSE generated successfully.")
+            yield f"✅ Knowledge response generated from {len(docs)} documents.", grounded_ans, session
+            return
+
+        elif decision.intent == "action":
+            yield "⚡ Direct Action detected. Calling MCP Tool Registry...", "Executing ticket action...", session
+            tool_res = call_mcp_tool(
+                "jira.create_ticket",
+                summary=user_input,
+                description=f"Action requested via AI Assistant: {user_input}"
+            )
+            ticket_id = tool_res.get("ticket_id", "MOCK-JIRA-001")
+            ans = f"Your mock Jira ticket **{ticket_id}** has been created successfully."
+            logger.info(f"MCP_TOOL_CALL jira.create_ticket -> {ticket_id}")
+            yield f"🎫 MOCK-JIRA Tool Executed -> Ticket ID: {ticket_id}", ans, session
+            return
+
+        elif decision.intent == "workflow":
+            new_w_name = decision.workflow or "slow_laptop"
+            yield f"🔄 Launching stateful LangGraph workflow: '{new_w_name}'...", "Initializing workflow...", session
+
+            session.clear()
+            session.update({
+                "user_request": user_input,
+                "workflow": new_w_name,
+                "messages": [f"🚀 Workflow '{new_w_name}' initialized."],
+                "suspended_workflows": cur_suspended,
+                "status": "RUNNING"
+            })
+
+            if new_w_name == "slow_laptop":
+                updated_state = SLOW_LAPTOP_APP.invoke(session)
+            elif new_w_name == "password_reset":
+                updated_state = PASSWORD_RESET_APP.invoke(session)
+            elif new_w_name == "vpn_troubleshooting":
+                updated_state = VPN_WORKFLOW_APP.invoke(session)
+            else:
+                updated_state = SLOW_LAPTOP_APP.invoke(session)
+
+            updated_state["suspended_workflows"] = cur_suspended
+            _WORKFLOW_SESSIONS[thread_id] = updated_state
+            logs = "\n".join(updated_state.get("messages", []))
+            logger.info(f"WORKFLOW_STATE_CHANGE status={updated_state.get('status')}")
+            yield logs, updated_state.get("final_response", ""), updated_state
+            return
+
+    def handle_approval_action(self, thread_id: str, approved: bool) -> Generator[Tuple[str, str, Dict[str, Any]], None, None]:
+        """Handle Approve/Reject button clicks from Gradio UI."""
+        logger.info(f"APPROVAL_RESULT [thread_id={thread_id}] approved={approved}")
+        session = get_or_create_session(thread_id)
+        cur_suspended = copy.deepcopy(session.get("suspended_workflows", {}))
+        session["approved"] = approved
+        session["waiting_for"] = None
+        session["approval_required"] = False
+
+        yield ("👍 Approval granted. Continuing workflow..." if approved else "👎 Approval rejected."), "Processing...", session
+        
+        w_name = session.get("workflow", "slow_laptop")
+        if w_name == "slow_laptop":
+            updated_state = SLOW_LAPTOP_APP.invoke(session)
+        else:
+            updated_state = SLOW_LAPTOP_APP.invoke(session)
+
+        updated_state["suspended_workflows"] = cur_suspended
+        _WORKFLOW_SESSIONS[thread_id] = updated_state
+        logs = "\n".join(updated_state.get("messages", []))
+        yield logs, updated_state.get("final_response", ""), updated_state
+
+    def reset_thread(self, thread_id: str):
+        """Reset a conversation session thread."""
+        logger.info(f"THREAD_RESET [thread_id={thread_id}]")
+        reset_session(thread_id)
+
+
+========================================================================
+
+########################################################################
+# FILE: langgraph_workflow.py
+########################################################################
+
+import os
+import random
+import logging
+from typing import Dict, Any, List, Optional, TypedDict
+from dotenv import load_dotenv
+
+from langgraph.graph import StateGraph, END
+from mock_mcp_servers import call_mcp_tool
+
+load_dotenv()
+logger = logging.getLogger(__name__)
+
+MAX_OTP_ATTEMPTS = int(os.getenv("MAX_OTP_ATTEMPTS", "3"))
+REQUIRE_APPROVAL = os.getenv("REQUIRE_APPROVAL", "true").lower() == "true"
+
+
+class SupportState(TypedDict, total=False):
+    user_request: str
+    intent: str
+    workflow: str
+
+    operating_system: Optional[str]
+    restarted: Optional[bool]
+
+    diagnostic_result: Optional[Dict[str, Any]]
+    suggested_fixes: Optional[List[str]]
+    resolved: Optional[bool]
+
+    otp: Optional[str]
+    otp_attempts: int
+    identity_verified: Optional[bool]
+
+    ticket_id: Optional[str]
+    notification_status: Optional[str]
+
+    waiting_for: Optional[str]
+    suspended_workflows: Optional[Dict[str, Any]]
+
+    approval_required: bool
+    approval_id: Optional[str]
+    approved: Optional[bool]
+
+    status: str
+    final_response: str
+    messages: List[str]
+
+
+# =====================================================================
+# 1. SLOW LAPTOP WORKFLOW NODES & EDGES
+# =====================================================================
+
+def identify_slow_laptop_issue(state: SupportState) -> SupportState:
+    logger.info("[WORKFLOW: Slow Laptop] Identifying issue details.")
+    state["status"] = "RUNNING"
+    state["workflow"] = "slow_laptop"
+    if not state.get("messages"):
+        state["messages"] = []
+    if "🧠 Starting slow-laptop workflow..." not in state["messages"]:
+        state["messages"].append("🧠 Starting slow-laptop workflow...")
+    return state
+
+
+def check_os_and_restart_step(state: SupportState) -> str:
+    if not state.get("operating_system"):
+        return "ask_os"
+    if state.get("restarted") is None:
+        return "ask_restart"
+    return "run_diagnostics"
+
+
+def ask_operating_system(state: SupportState) -> SupportState:
+    state["waiting_for"] = "operating_system"
+    state["status"] = "WAITING_FOR_USER"
+    state["final_response"] = "What operating system are you using on your laptop (e.g., Windows 11, macOS, Linux)?"
+    return state
+
+
+def ask_restart_status(state: SupportState) -> SupportState:
+    state["messages"].append(f"💻 OS: {state.get('operating_system')}")
+    state["waiting_for"] = "restart_status"
+    state["status"] = "WAITING_FOR_USER"
+    state["final_response"] = "Have you restarted your laptop recently to clear background processes? (Yes/No)"
+    return state
+
+
+def run_laptop_diagnostics(state: SupportState) -> SupportState:
+    logger.info("[WORKFLOW: Slow Laptop] Invoking AWS MCP diagnostic tool.")
+    state["messages"].append(f"🔄 Restarted laptop: {'Yes' if state.get('restarted') else 'No'}")
+    state["messages"].append("🔍 Running mock AWS diagnostics...")
+    diag_result = call_mcp_tool("aws.run_diagnostic", instance_id="laptop-abc-789")
+    state["diagnostic_result"] = diag_result
+    
+    cpu = diag_result.get("cpu_usage", 92)
+    mem = diag_result.get("memory_usage", 88)
+    disk = diag_result.get("disk_usage", 95)
+    state["messages"].append(f"📊 CPU usage: {cpu}% | Memory: {mem}% | Disk: {disk}%")
+
+    fixes = diag_result.get("suggested_fixes", [
+        "Reboot system to clear unmanaged background memory.",
+        "Run Disk Cleanup to remove temporary caches.",
+        "Close resource-intensive applications."
+    ])
+    state["suggested_fixes"] = fixes
+    state["messages"].append("🛠️ Analyzed diagnostic telemetry. Formulated troubleshooting steps.")
+    return state
+
+
+def check_resolution_step(state: SupportState) -> str:
+    if state.get("resolved") is None:
+        return "ask_resolution"
+    elif state.get("resolved") is True:
+        return "finish_resolved"
+    else:
+        return "check_approval"
+
+
+def ask_laptop_resolution(state: SupportState) -> SupportState:
+    fixes_str = "\n".join([f"{i+1}. {fix}" for i, fix in enumerate(state.get("suggested_fixes", []))])
+    state["waiting_for"] = "resolution_status"
+    state["status"] = "WAITING_FOR_USER"
+    state["final_response"] = (
+        f"Here are the recommended diagnostic troubleshooting steps:\n\n{fixes_str}\n\n"
+        "Did these steps resolve your laptop performance issue? (Yes/No)"
+    )
+    return state
+
+
+def finish_slow_laptop_resolved(state: SupportState) -> SupportState:
+    state["status"] = "COMPLETED"
+    state["waiting_for"] = None
+    state["final_response"] = "Great! I'm glad your laptop performance issue is resolved. Please reach out if you need further IT assistance!"
+    state["messages"].append("✅ Slow laptop workflow completed successfully (Issue Resolved).")
+    return state
+
+
+def check_approval_step(state: SupportState) -> str:
+    if state.get("approved") is None:
+        return "request_approval"
+    elif state.get("approved") is True:
+        return "create_ticket"
+    else:
+        return "finish_rejected"
+
+
+def request_ticket_approval(state: SupportState) -> SupportState:
+    logger.info("[WORKFLOW: Slow Laptop] Issue unresolved. Requesting ticket creation approval.")
+    state["messages"].append("⚠️ Issue unresolved. Preparing ticket escalation...")
+    state["approval_required"] = True
+    state["approval_id"] = "APP-SLOW-LAPTOP-001"
+    state["waiting_for"] = "approval"
+    state["status"] = "WAITING_FOR_APPROVAL"
+    state["final_response"] = (
+        "APPROVAL REQUIRED:\n\n"
+        "Action: Create ServiceNow Incident and Notify Manager\n"
+        "Description: Unresolved laptop performance issue (CPU 92%, Disk 95%).\n\n"
+        "Please click APPROVE or REJECT below to proceed."
+    )
+    return state
+
+
+def create_laptop_ticket(state: SupportState) -> SupportState:
+    logger.info("[WORKFLOW: Slow Laptop] Approval granted. Creating ServiceNow incident.")
+    state["messages"].append("🎫 Creating MOCK ServiceNow incident...")
+    
+    inc_res = call_mcp_tool(
+        "servicenow.create_incident",
+        short_description=f"Laptop performance degraded (OS: {state.get('operating_system', 'Windows 11')})",
+        category="Hardware",
+        urgency="Medium"
+    )
+    ticket_id = inc_res.get("incident_id", "MOCK-SNOW-001")
+    state["ticket_id"] = ticket_id
+    state["messages"].append(f"🎫 Incident created: {ticket_id}")
+    return state
+
+
+def notify_laptop_manager(state: SupportState) -> SupportState:
+    logger.info("[WORKFLOW: Slow Laptop] Sending manager notification.")
+    state["messages"].append("📧 Sending MOCK manager notification...")
+    
+    slack_res = call_mcp_tool(
+        "slack.send_notification",
+        channel="#it-support-leads",
+        message=f"Incident {state.get('ticket_id')} opened for employee laptop slowdown."
+    )
+    state["notification_status"] = slack_res.get("status", "sent")
+    
+    state["status"] = "COMPLETED"
+    state["waiting_for"] = None
+    state["final_response"] = (
+        f"Your laptop performance issue has been escalated. A ServiceNow incident **{state.get('ticket_id')}** "
+        f"has been created and your IT lead has been notified via Slack/Outlook. An IT engineer will reach out to you shortly."
+    )
+    state["messages"].append("✅ Workflow completed with ticket creation and manager notification.")
+    return state
+
+
+def finish_slow_laptop_rejected(state: SupportState) -> SupportState:
+    state["status"] = "COMPLETED"
+    state["waiting_for"] = None
+    state["final_response"] = "The request to create an IT ticket was rejected. No ticket was logged. Let us know if you need anything else!"
+    state["messages"].append("❌ Ticket approval rejected. Workflow finished without ticket creation.")
+    return state
+
+
+# Build Slow Laptop Graph
+def build_slow_laptop_graph() -> StateGraph:
+    builder = StateGraph(SupportState)
+    
+    builder.add_node("identify_issue", identify_slow_laptop_issue)
+    builder.add_node("ask_os", ask_operating_system)
+    builder.add_node("ask_restart", ask_restart_status)
+    builder.add_node("run_diagnostics", run_laptop_diagnostics)
+    builder.add_node("ask_resolution", ask_laptop_resolution)
+    builder.add_node("finish_resolved", finish_slow_laptop_resolved)
+    builder.add_node("request_approval", request_ticket_approval)
+    builder.add_node("create_ticket", create_laptop_ticket)
+    builder.add_node("notify_manager", notify_laptop_manager)
+    builder.add_node("finish_rejected", finish_slow_laptop_rejected)
+
+    builder.set_entry_point("identify_issue")
+
+    builder.add_conditional_edges(
+        "identify_issue",
+        check_os_and_restart_step,
+        {
+            "ask_os": "ask_os",
+            "ask_restart": "ask_restart",
+            "run_diagnostics": "run_diagnostics"
+        }
+    )
+
+    builder.add_edge("ask_os", END)
+    builder.add_edge("ask_restart", END)
+
+    builder.add_conditional_edges(
+        "run_diagnostics",
+        check_resolution_step,
+        {
+            "ask_resolution": "ask_resolution",
+            "finish_resolved": "finish_resolved",
+            "check_approval": "request_approval"
+        }
+    )
+
+    builder.add_edge("ask_resolution", END)
+
+    builder.add_conditional_edges(
+        "request_approval",
+        check_approval_step,
+        {
+            "request_approval": END,
+            "create_ticket": "create_ticket",
+            "finish_rejected": "finish_rejected"
+        }
+    )
+
+    builder.add_edge("create_ticket", "notify_manager")
+    builder.add_edge("notify_manager", END)
+    builder.add_edge("finish_resolved", END)
+    builder.add_edge("finish_rejected", END)
+
+    return builder.compile()
+
+
+# =====================================================================
+# 2. PASSWORD RESET WORKFLOW NODES & EDGES
+# =====================================================================
+
+def verify_pwd_identity(state: SupportState) -> SupportState:
+    logger.info("[WORKFLOW: Password Reset] Verifying identity.")
+    state["status"] = "RUNNING"
+    state["workflow"] = "password_reset"
+    if not state.get("messages"):
+        state["messages"] = []
+    if "🔑 Initiating identity verification for password reset..." not in state["messages"]:
+        state["messages"].append("🔑 Initiating identity verification for password reset...")
+    state["otp_attempts"] = state.get("otp_attempts", 0)
+    
+    if not state.get("otp"):
+        mock_otp = f"{random.randint(100000, 999999)}"
+        state["otp"] = mock_otp
+        logger.info(f"[WORKFLOW: Password Reset] Generated MOCK OTP: {mock_otp}")
+        state["messages"].append(f"📱 Generated DEMONSTRATION ONLY — MOCK OTP: {mock_otp}")
+    return state
+
+
+def check_pwd_step(state: SupportState) -> str:
+    if state.get("identity_verified") is True:
+        return "reset_password"
+    
+    user_input = (state.get("user_request") or "").strip()
+    if user_input and user_input != "I forgot my password." and not user_input.startswith("🔑 Initiating"):
+        return "validate_otp"
+    
+    return "wait_for_otp"
+
+
+def wait_for_otp_input(state: SupportState) -> SupportState:
+    mock_otp = state.get("otp", "482913")
+    attempts = state.get("otp_attempts", 0)
+    state["waiting_for"] = "otp"
+    state["status"] = "WAITING_FOR_USER"
+    
+    attempt_msg = f" (Attempt {attempts + 1} of {MAX_OTP_ATTEMPTS})" if attempts > 0 else ""
+    state["final_response"] = (
+        f"🔐 [DEMONSTRATION ONLY — MOCK OTP: **{mock_otp}**]\n\n"
+        f"Please enter the 6-digit verification OTP sent to your registered contact{attempt_msg}:"
+    )
+    return state
+
+
+def validate_otp_input(state: SupportState) -> SupportState:
+    entered = state.get("user_request", "").strip()
+    expected = state.get("otp", "")
+    current_attempts = state.get("otp_attempts", 0) + 1
+    state["otp_attempts"] = current_attempts
+
+    if entered == expected or (expected and entered in expected):
+        logger.info("[WORKFLOW: Password Reset] OTP validation successful.")
+        state["identity_verified"] = True
+        state["waiting_for"] = None
+        state["messages"].append("✅ OTP verified successfully.")
+    else:
+        logger.warning(f"[WORKFLOW: Password Reset] Invalid OTP entered: '{entered}' (Attempt {current_attempts}/{MAX_OTP_ATTEMPTS})")
+        state["identity_verified"] = False
+        state["messages"].append(f"❌ Invalid OTP entered (Attempt {current_attempts}/{MAX_OTP_ATTEMPTS}).")
+    return state
+
+
+def check_otp_validation_result(state: SupportState) -> str:
+    if state.get("identity_verified") is True:
+        return "reset_password"
+    elif state.get("otp_attempts", 0) >= MAX_OTP_ATTEMPTS:
+        return "escalate_incident"
+    else:
+        return "wait_for_otp"
+
+
+def reset_user_password(state: SupportState) -> SupportState:
+    logger.info("[WORKFLOW: Password Reset] Executing mock password reset.")
+    state["messages"].append("🔒 Resetting corporate SSO password (MOCK)...")
+    state["ticket_id"] = "MOCK-PWD-RESET-88"
+    return state
+
+
+def notify_pwd_employee(state: SupportState) -> SupportState:
+    logger.info("[WORKFLOW: Password Reset] Sending completion email via Outlook MCP.")
+    state["messages"].append("📧 Sending password reset confirmation email (MOCK)...")
+    call_mcp_tool(
+        "outlook.send_email",
+        to="employee@abctechnologies.com",
+        subject="ABC Technologies - Password Reset Confirmation",
+        body="Your corporate SSO password has been successfully reset."
+    )
+    state["status"] = "COMPLETED"
+    state["waiting_for"] = None
+    state["final_response"] = (
+        "✅ Your ABC Technologies corporate SSO password has been reset successfully!\n\n"
+        "A confirmation email has been sent to your registered mailbox. "
+        "Please use your new password to sign into corporate applications."
+    )
+    state["messages"].append("✅ Password reset workflow completed.")
+    return state
+
+
+def escalate_pwd_incident(state: SupportState) -> SupportState:
+    logger.error("[WORKFLOW: Password Reset] Max OTP attempts reached. Escalating to ServiceNow.")
+    state["messages"].append("⚠️ Exceeded maximum OTP verification attempts. Escalating security incident...")
+    
+    inc_res = call_mcp_tool(
+        "servicenow.create_incident",
+        short_description="Multiple failed OTP password reset attempts - Account Lockout",
+        category="Security",
+        urgency="High"
+    )
+    incident_id = inc_res.get("incident_id", "MOCK-SNOW-002")
+    state["ticket_id"] = incident_id
+    state["status"] = "COMPLETED"
+    state["waiting_for"] = None
+    state["final_response"] = (
+        f"🚨 You have exceeded the maximum allowed OTP attempts ({MAX_OTP_ATTEMPTS}).\n\n"
+        f"For security compliance, your account password reset has been suspended and a high-priority ServiceNow "
+        f"security incident **{incident_id}** has been dispatched to the IT Security Team."
+    )
+    state["messages"].append(f"🚨 Escalated to ServiceNow Incident {incident_id}.")
+    return state
+
+
+# Build Password Reset Graph
+def build_password_reset_graph() -> StateGraph:
+    builder = StateGraph(SupportState)
+
+    builder.add_node("verify_identity", verify_pwd_identity)
+    builder.add_node("wait_for_otp", wait_for_otp_input)
+    builder.add_node("validate_otp", validate_otp_input)
+    builder.add_node("reset_password", reset_user_password)
+    builder.add_node("notify_employee", notify_pwd_employee)
+    builder.add_node("escalate_incident", escalate_pwd_incident)
+
+    builder.set_entry_point("verify_identity")
+
+    builder.add_conditional_edges(
+        "verify_identity",
+        check_pwd_step,
+        {
+            "wait_for_otp": "wait_for_otp",
+            "validate_otp": "validate_otp",
+            "reset_password": "reset_password"
+        }
+    )
+
+    builder.add_edge("wait_for_otp", END)
+
+    builder.add_conditional_edges(
+        "validate_otp",
+        check_otp_validation_result,
+        {
+            "reset_password": "reset_password",
+            "wait_for_otp": "wait_for_otp",
+            "escalate_incident": "escalate_incident"
+        }
+    )
+
+    builder.add_edge("reset_password", "notify_employee")
+    builder.add_edge("notify_employee", END)
+    builder.add_edge("escalate_incident", END)
+
+    return builder.compile()
+
+
+# =====================================================================
+# 3. VPN TROUBLESHOOTING WORKFLOW NODES & EDGES
+# =====================================================================
+
+def init_vpn_workflow(state: SupportState) -> SupportState:
+    state["status"] = "RUNNING"
+    state["workflow"] = "vpn_troubleshooting"
+    if not state.get("messages"):
+        state["messages"] = []
+    state["messages"].append("🌐 Starting VPN Troubleshooting workflow...")
+    return state
+
+
+def ask_vpn_os(state: SupportState) -> SupportState:
+    if not state.get("operating_system"):
+        state["waiting_for"] = "vpn_os"
+        state["status"] = "WAITING_FOR_USER"
+        state["final_response"] = "Which operating system are you connecting to GlobalProtect VPN from (e.g. Windows, macOS, Linux)?"
+    else:
+        state["messages"].append(f"💻 VPN OS: {state['operating_system']}")
+        state["waiting_for"] = None
+    return state
+
+
+def run_vpn_diagnostics(state: SupportState) -> SupportState:
+    state["messages"].append("🔍 Checking GlobalProtect client configurations and gateway endpoints...")
+    state["messages"].append("🛠️ Gateway: vpn-us.abctechnologies.com | Status: DNS Resolution Warning")
+    return state
+
+
+def suggest_vpn_fixes(state: SupportState) -> SupportState:
+    if state.get("resolved") is None:
+        state["waiting_for"] = "vpn_resolution"
+        state["status"] = "WAITING_FOR_USER"
+        state["final_response"] = (
+            "Please try the following VPN troubleshooting steps:\n\n"
+            "1. Open Command Prompt and run `ipconfig /flushdns`.\n"
+            "2. Restart the GlobalProtect service via Task Manager -> Services.\n"
+            "3. Select gateway endpoint `vpn-us.abctechnologies.com` explicitly.\n\n"
+            "Did this solve your VPN connection issue? (Yes/No)"
+        )
+    return state
+
+
+def finish_vpn_resolved(state: SupportState) -> SupportState:
+    state["status"] = "COMPLETED"
+    state["waiting_for"] = None
+    state["final_response"] = "Awesome! Glad your VPN connection is restored."
+    state["messages"].append("✅ VPN workflow completed (Resolved).")
+    return state
+
+
+def create_vpn_ticket(state: SupportState) -> SupportState:
+    state["messages"].append("🎫 Creating MOCK Jira ticket for VPN issue...")
+    ticket_res = call_mcp_tool(
+        "jira.create_ticket",
+        summary=f"VPN Connection Failure on {state.get('operating_system', 'Windows')}",
+        priority="High"
+    )
+    ticket_id = ticket_res.get("ticket_id", "MOCK-JIRA-005")
+    state["ticket_id"] = ticket_id
+    state["status"] = "COMPLETED"
+    state["waiting_for"] = None
+    state["final_response"] = (
+        f"Your VPN issue has been logged as Jira ticket **{ticket_id}**. "
+        "Network Operations has been notified."
+    )
+    state["messages"].append(f"✅ VPN ticket created: {ticket_id}")
+    return state
+
+
+def build_vpn_workflow_graph() -> StateGraph:
+    builder = StateGraph(SupportState)
+    builder.add_node("init_vpn", init_vpn_workflow)
+    builder.add_node("ask_vpn_os", ask_vpn_os)
+    builder.add_node("run_vpn_diag", run_vpn_diagnostics)
+    builder.add_node("suggest_vpn_fixes", suggest_vpn_fixes)
+    builder.add_node("finish_vpn_resolved", finish_vpn_resolved)
+    builder.add_node("create_vpn_ticket", create_vpn_ticket)
+
+    builder.set_entry_point("init_vpn")
+    builder.add_edge("init_vpn", "ask_vpn_os")
+    builder.add_edge("ask_vpn_os", "run_vpn_diag")
+    builder.add_edge("run_vpn_diag", "suggest_vpn_fixes")
+
+    builder.add_conditional_edges(
+        "suggest_vpn_fixes",
+        lambda s: "resolved" if s.get("resolved") is True else "unresolved",
+        {
+            "resolved": "finish_vpn_resolved",
+            "unresolved": "create_vpn_ticket"
+        }
+    )
+
+    builder.add_edge("finish_vpn_resolved", END)
+    builder.add_edge("create_vpn_ticket", END)
+    return builder.compile()
+
+
+# Compiled Workflow Instances
+SLOW_LAPTOP_APP = build_slow_laptop_graph()
+PASSWORD_RESET_APP = build_password_reset_graph()
+VPN_WORKFLOW_APP = build_vpn_workflow_graph()
+
+
+# Session Thread Storage for State Persistence & Suspend/Resume
+_WORKFLOW_SESSIONS: Dict[str, SupportState] = {}
+
+
+def get_or_create_session(thread_id: str) -> SupportState:
+    """Retrieve existing session state or initialize a fresh state."""
+    if thread_id not in _WORKFLOW_SESSIONS:
+        _WORKFLOW_SESSIONS[thread_id] = {
+            "user_request": "",
+            "intent": "",
+            "workflow": "",
+            "operating_system": None,
+            "restarted": None,
+            "diagnostic_result": None,
+            "suggested_fixes": [],
+            "resolved": None,
+            "otp": None,
+            "otp_attempts": 0,
+            "identity_verified": None,
+            "ticket_id": None,
+            "notification_status": None,
+            "waiting_for": None,
+            "approval_required": False,
+            "approval_id": None,
+            "approved": None,
+            "status": "IDLE",
+            "final_response": "",
+            "messages": []
+        }
+    return _WORKFLOW_SESSIONS[thread_id]
+
+
+def reset_session(thread_id: str):
+    """Clear session state for a given thread."""
+    if thread_id in _WORKFLOW_SESSIONS:
+        del _WORKFLOW_SESSIONS[thread_id]
+
+
+========================================================================
+
+########################################################################
+# FILE: rag_pipeline.py
+########################################################################
+
+import os
+import glob
+import logging
+from typing import List, Dict, Any, Optional
+from dotenv import load_dotenv
+
+from langchain_community.document_loaders import TextLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Chroma
+from langchain_core.documents import Document
+
+load_dotenv()
+
+logger = logging.getLogger(__name__)
+
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+CHROMA_PATH = os.getenv("CHROMA_PATH", "data/chroma")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gpt-oss:120b-cloud")
+
+SYSTEM_GROUNDING_PROMPT = (
+    "You are the ABC Technologies enterprise support assistant.\n"
+    "Answer ONLY using the supplied knowledge-base context.\n"
+    "If the information is not available in the supplied context, say:\n"
+    "'I could not find this information in the available ABC Technologies knowledge base.'\n"
+    "Do not invent company policy."
+)
+
+
+class RAGPipeline:
+    def __init__(
+        self,
+        docs_dir: str = "docs",
+        chroma_path: str = CHROMA_PATH,
+        embedding_model_name: str = EMBEDDING_MODEL,
+        ollama_model: str = OLLAMA_MODEL
+    ):
+        self.docs_dir = docs_dir
+        self.chroma_path = chroma_path
+        self.embedding_model_name = embedding_model_name
+        self.ollama_model = ollama_model
+        
+        self.embeddings = None
+        self.vector_store = None
+        self._init_embeddings()
+
+    def _init_embeddings(self):
+        """Initialize HuggingFace embeddings."""
+        try:
+            logger.info(f"Initializing embedding model: {self.embedding_model_name}")
+            self.embeddings = HuggingFaceEmbeddings(model_name=self.embedding_model_name)
+        except Exception as e:
+            logger.error(f"Error initializing embeddings: {e}")
+            raise RuntimeError(f"Failed to load embedding model {self.embedding_model_name}: {e}")
+
+    def load_documents(self) -> List[Document]:
+        """Load text documents from docs directory."""
+        documents = []
+        if not os.path.exists("docs"):
+            logger.warning("Docs directory does not exist.")
+            return documents
+
+        txt_files = glob.glob(os.path.join("docs", "*.txt"))
+        for file_path in txt_files:
+            try:
+                loader = TextLoader(file_path, encoding="utf-8")
+                docs = loader.load()
+                for doc in docs:
+                    doc.metadata["source"] = os.path.basename(file_path)
+                documents.extend(docs)
+                logger.info(f"Loaded {len(docs)} document from {file_path}")
+            except Exception as e:
+                logger.error(f"Failed to load document {file_path}: {e}")
+        return documents
+
+    def split_documents(self, documents: List[Document]) -> List[Document]:
+        """Split loaded documents into smaller chunks for vector indexing."""
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=500,
+            chunk_overlap=50,
+            separators=["\n\n", "\n", " ", ""]
+        )
+        chunks = splitter.split_documents(documents)
+        logger.info(f"Split {len(documents)} documents into {len(chunks)} chunks.")
+        return chunks
+
+    def create_embeddings(self) -> HuggingFaceEmbeddings:
+        """Get the initialized embedding model."""
+        if not self.embeddings:
+            self._init_embeddings()
+        return self.embeddings
+
+    def build_vector_store(self, force_rebuild: bool = False) -> Chroma:
+        """Build or load persistent Chroma vector store."""
+        if not self.embeddings:
+            self._init_embeddings()
+
+        if not force_rebuild and os.path.exists(self.chroma_path) and os.listdir(self.chroma_path):
+            logger.info(f"Loading existing vector store from {self.chroma_path}")
+            self.vector_store = Chroma(
+                persist_directory=self.chroma_path,
+                embedding_function=self.embeddings
+            )
+            return self.vector_store
+
+        logger.info(f"Building new vector store at {self.chroma_path}")
+        raw_docs = self.load_documents()
+        if not raw_docs:
+            logger.warning("No documents found in docs/. Creating empty Chroma vector store.")
+            os.makedirs(self.chroma_path, exist_ok=True)
+            self.vector_store = Chroma(
+                persist_directory=self.chroma_path,
+                embedding_function=self.embeddings
+            )
+            return self.vector_store
+
+        chunks = self.split_documents(raw_docs)
+        os.makedirs(self.chroma_path, exist_ok=True)
+        self.vector_store = Chroma.from_documents(
+            documents=chunks,
+            embedding=self.embeddings,
+            persist_directory=self.chroma_path
+        )
+        logger.info("Vector store successfully built and persisted.")
+        return self.vector_store
+
+    def retrieve_context(self, query: str, top_k: int = 3) -> List[Document]:
+        """Retrieve relevant context chunks for a user query."""
+        if not self.vector_store:
+            self.build_vector_store()
+
+        results = self.vector_store.similarity_search_with_score(query, k=top_k)
+        docs = []
+        for doc, score in results:
+            docs.append(doc)
+            logger.info(f"Retrieved chunk from {doc.metadata.get('source', 'unknown')} with score {score}")
+        return docs
+
+    def generate_grounded_response(self, query: str, context_docs: List[Document]) -> str:
+        """Generate a grounded answer using strict enterprise knowledge context."""
+        if not context_docs:
+            return "I could not find this information in the available ABC Technologies knowledge base."
+
+        context_str = "\n---\n".join([doc.page_content for doc in context_docs])
+        
+        # Check relevance/presence of relevant details
+        query_words = set(query.lower().split())
+        matched = False
+        for doc in context_docs:
+            content_lower = doc.page_content.lower()
+            if any(word in content_lower for word in query_words if len(word) > 3):
+                matched = True
+                break
+
+        if not matched:
+            return "I could not find this information in the available ABC Technologies knowledge base."
+
+        prompt = (
+            f"{SYSTEM_GROUNDING_PROMPT}\n\n"
+            f"CONTEXT:\n{context_str}\n\n"
+            f"USER QUESTION: {query}\n\n"
+            f"ANSWER:"
+        )
+
+        try:
+            from langchain_ollama import OllamaLLM
+            llm = OllamaLLM(model=self.ollama_model, timeout=10)
+            response = llm.invoke(prompt)
+            if response and response.strip():
+                return response.strip()
+        except Exception as e:
+            logger.warning(f"Ollama LLM call failed or offline ({e}). Generating fallback grounded response.")
+
+        # Fallback grounded extraction if LLM endpoint is unavailable
+        extracted_sections = []
+        for doc in context_docs:
+            extracted_sections.append(f"• According to **{doc.metadata.get('source', 'policy')}**:\n{doc.page_content.strip()}")
+        
+        return "Based on ABC Technologies policy:\n\n" + "\n\n".join(extracted_sections)
+
+
+========================================================================
+
+########################################################################
+# FILE: mock_mcp_servers.py
+########################################################################
+
+import logging
+from typing import Dict, Any, Callable
+
+logger = logging.getLogger(__name__)
+
+# Counter states for unique ticket/incident ID generation
+_jira_counter = 1
+_snow_counter = 1
+
+
+class JiraMCPServer:
+    """Mock Jira MCP Server for IT ticket management."""
+
+    @staticmethod
+    def create_ticket(
+        summary: str,
+        description: str = "",
+        project: str = "IT",
+        priority: str = "Medium",
+        reporter: str = "employee@abctechnologies.com"
+    ) -> Dict[str, Any]:
+        global _jira_counter
+        ticket_id = f"MOCK-JIRA-{_jira_counter:03d}"
+        _jira_counter += 1
+        
+        logger.info(f"[MCP JIRA] Creating ticket {ticket_id}: {summary}")
+        return {
+            "mock": True,
+            "system": "Jira",
+            "status": "created",
+            "ticket_id": ticket_id,
+            "summary": summary,
+            "description": description,
+            "project": project,
+            "priority": priority,
+            "reporter": reporter,
+            "message": f"Mock Jira ticket {ticket_id} created successfully."
+        }
+
+    @staticmethod
+    def get_ticket(ticket_id: str) -> Dict[str, Any]:
+        logger.info(f"[MCP JIRA] Retrieving ticket {ticket_id}")
+        return {
+            "mock": True,
+            "system": "Jira",
+            "status": "found",
+            "ticket_id": ticket_id,
+            "summary": "Mock issue summary",
+            "priority": "Medium",
+            "assignee": "helpdesk-agent@abctechnologies.com"
+        }
+
+    @staticmethod
+    def update_ticket(ticket_id: str, status: str = "In Progress") -> Dict[str, Any]:
+        logger.info(f"[MCP JIRA] Updating ticket {ticket_id} to status {status}")
+        return {
+            "mock": True,
+            "system": "Jira",
+            "status": "updated",
+            "ticket_id": ticket_id,
+            "new_status": status,
+            "message": f"Mock Jira ticket {ticket_id} updated to {status}."
+        }
+
+
+class ServiceNowMCPServer:
+    """Mock ServiceNow MCP Server for IT incident management."""
+
+    @staticmethod
+    def create_incident(
+        short_description: str,
+        category: str = "IT Hardware",
+        urgency: str = "Medium",
+        caller: str = "employee@abctechnologies.com"
+    ) -> Dict[str, Any]:
+        global _snow_counter
+        incident_id = f"MOCK-SNOW-{_snow_counter:03d}"
+        _snow_counter += 1
+
+        logger.info(f"[MCP SERVICENOW] Creating incident {incident_id}: {short_description}")
+        return {
+            "mock": True,
+            "system": "ServiceNow",
+            "status": "created",
+            "incident_id": incident_id,
+            "short_description": short_description,
+            "category": category,
+            "urgency": urgency,
+            "caller": caller,
+            "message": f"Mock ServiceNow incident {incident_id} created successfully."
+        }
+
+    @staticmethod
+    def get_incident(incident_id: str) -> Dict[str, Any]:
+        logger.info(f"[MCP SERVICENOW] Retrieving incident {incident_id}")
+        return {
+            "mock": True,
+            "system": "ServiceNow",
+            "status": "found",
+            "incident_id": incident_id,
+            "urgency": "Medium",
+            "state": "New"
+        }
+
+    @staticmethod
+    def update_incident(incident_id: str, work_notes: str) -> Dict[str, Any]:
+        logger.info(f"[MCP SERVICENOW] Updating incident {incident_id}")
+        return {
+            "mock": True,
+            "system": "ServiceNow",
+            "status": "updated",
+            "incident_id": incident_id,
+            "work_notes": work_notes,
+            "message": f"Mock ServiceNow incident {incident_id} updated."
+        }
+
+
+class OutlookMCPServer:
+    """Mock Outlook MCP Server for email notifications."""
+
+    @staticmethod
+    def send_email(to: str, subject: str, body: str) -> Dict[str, Any]:
+        logger.info(f"[MCP OUTLOOK] Sending mock email to {to}: {subject}")
+        return {
+            "mock": True,
+            "system": "Outlook",
+            "status": "sent",
+            "recipient": to,
+            "subject": subject,
+            "message": f"Mock email sent to {to}."
+        }
+
+
+class SlackMCPServer:
+    """Mock Slack MCP Server for team messaging."""
+
+    @staticmethod
+    def send_notification(channel: str, message: str) -> Dict[str, Any]:
+        logger.info(f"[MCP SLACK] Sending notification to {channel}: {message}")
+        return {
+            "mock": True,
+            "system": "Slack",
+            "status": "sent",
+            "channel": channel,
+            "message_text": message,
+            "message": f"Mock Slack notification sent to {channel}."
+        }
+
+
+class AWSMCPServer:
+    """Mock AWS MCP Server for workspace diagnostics."""
+
+    @staticmethod
+    def run_diagnostic(instance_id: str = "i-abctech001") -> Dict[str, Any]:
+        logger.info(f"[MCP AWS] Running diagnostic for workstation instance {instance_id}")
+        return {
+            "mock": True,
+            "system": "AWS",
+            "instance_id": instance_id,
+            "cpu_usage": 92,
+            "memory_usage": 88,
+            "disk_usage": 95,
+            "status": "performance_issue_detected",
+            "diagnostics_summary": "High utilization detected on CPU (92%), Memory (88%), Disk (95%).",
+            "suggested_fixes": [
+                "Restart the laptop to terminate runaway background processes.",
+                "Run Disk Cleanup to remove temporary cache files.",
+                "Close resource-heavy browser tabs or application containers."
+            ]
+        }
+
+
+# Central MCP Tool Registry Mapping
+TOOLS: Dict[str, Callable] = {
+    "jira.create_ticket": JiraMCPServer.create_ticket,
+    "jira.get_ticket": JiraMCPServer.get_ticket,
+    "jira.update_ticket": JiraMCPServer.update_ticket,
+    "servicenow.create_incident": ServiceNowMCPServer.create_incident,
+    "servicenow.get_incident": ServiceNowMCPServer.get_incident,
+    "servicenow.update_incident": ServiceNowMCPServer.update_incident,
+    "outlook.send_email": OutlookMCPServer.send_email,
+    "slack.send_notification": SlackMCPServer.send_notification,
+    "aws.run_diagnostic": AWSMCPServer.run_diagnostic,
+}
+
+
+def call_mcp_tool(tool_name: str, **kwargs) -> Dict[str, Any]:
+    """
+    Standardized execution abstraction for MCP tools.
+    Validates tool existence and returns structured output tagged with MOCK: True.
+    """
+    if tool_name not in TOOLS:
+        logger.error(f"Attempted call to unregistered tool: {tool_name}")
+        return {
+            "mock": True,
+            "status": "error",
+            "message": f"Tool '{tool_name}' is not registered in the MCP tool registry."
+        }
+
+    try:
+        tool_func = TOOLS[tool_name]
+        result = tool_func(**kwargs)
+        result["mock"] = True
+        return result
+    except Exception as e:
+        logger.error(f"Error executing tool {tool_name}: {e}")
+        return {
+            "mock": True,
+            "status": "error",
+            "message": f"Tool execution failed: {str(e)}"
+        }
+
+
+========================================================================
+
